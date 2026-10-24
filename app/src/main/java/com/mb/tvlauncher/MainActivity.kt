@@ -65,6 +65,15 @@ class MainActivity : Activity() {
     }
 
     private val perRow = 6
+    private lateinit var pill: LinearLayout
+
+    private fun hoverFocus(v: View) {
+        v.isFocusableInTouchMode = true
+        v.setOnHoverListener { x, e ->
+            if (e.action == android.view.MotionEvent.ACTION_HOVER_ENTER && !x.hasFocus()) x.requestFocus()
+            false
+        }
+    }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
@@ -82,6 +91,7 @@ class MainActivity : Activity() {
             background = GradientDrawable().apply { cornerRadius = dp(18).toFloat(); setColor(Color.TRANSPARENT) }
             isFocusable = true
             isClickable = true
+            hoverFocus(this)
             setOnFocusChangeListener { v, has ->
                 (v.background as GradientDrawable).setColor(if (has) 0x55FFFFFF else Color.TRANSPARENT)
                 v.animate().scaleX(if (has) 1.1f else 1f).scaleY(if (has) 1.1f else 1f).setDuration(140).start()
@@ -118,7 +128,7 @@ class MainActivity : Activity() {
         dim = View(this).apply { setBackgroundColor(Color.BLACK); alpha = 0f }
         root.addView(dim, FrameLayout.LayoutParams(-1, -1))
 
-        val pill = LinearLayout(this).apply {
+        pill = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             clipChildren = false
@@ -135,6 +145,7 @@ class MainActivity : Activity() {
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0x44FFFFFF) }
             isFocusable = true
             isClickable = true
+            hoverFocus(this)
             addView(StatusIcon(this@MainActivity, StatusIcon.GEAR), FrameLayout.LayoutParams(dp(26), dp(26), Gravity.CENTER))
             setOnClickListener { open(Intent(this@MainActivity, SettingsActivity::class.java)) }
             setOnFocusChangeListener { v, has ->
@@ -185,6 +196,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        pill.visibility = if (prefs.getBoolean("hide_bar", false)) View.GONE else View.VISIBLE
         if (movingPkg == null) populate()
         handler.post(tick)
     }
@@ -385,6 +397,7 @@ class MainActivity : Activity() {
             isFocusable = true
             isClickable = true
             tag = app.pkg
+            hoverFocus(this)
             foreground = ColorDrawable(Color.TRANSPARENT)
         }
         val pm = packageManager
@@ -446,7 +459,9 @@ class MainActivity : Activity() {
     }
 
     private fun open(i: Intent, opts: Bundle? = null) {
-        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-        runCatching { startActivity(i, opts) }
+        if (i.component?.className?.endsWith("SettingsActivity") != true) {
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        }
+        runCatching { startActivity(i, opts) }.onFailure { android.util.Log.e("TVH", "open failed", it) }
     }
 }

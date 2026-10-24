@@ -7,7 +7,7 @@ android {
     compileSdk = 34
     defaultConfig {
         applicationId = "com.mb.appletvlauncher"
-        minSdk = 26
+        minSdk = 21
         targetSdk = 22
         versionCode = 1
         versionName = "1.0"

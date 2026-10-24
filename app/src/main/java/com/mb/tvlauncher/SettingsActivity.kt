@@ -95,7 +95,7 @@ class SettingsActivity : Activity() {
         root.addView(content, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
 
-        if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION), 1)
         }
         when (intent.getStringExtra("page")) {
@@ -149,6 +149,11 @@ class SettingsActivity : Activity() {
             background = GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(0x33FFFFFF) }
             isFocusable = true
             isClickable = true
+            isFocusableInTouchMode = true
+            setOnHoverListener { x, e ->
+                if (e.action == android.view.MotionEvent.ACTION_HOVER_ENTER && !x.hasFocus()) x.requestFocus()
+                false
+            }
         }
         val t = TextView(this).apply { text = title; setTextColor(Color.WHITE); textSize = 22f; maxLines = 1 }
         box.addView(t)
@@ -196,6 +201,11 @@ class SettingsActivity : Activity() {
         row("Wi-Fi", currentSsid(), { setLeft("Wi-Fi", currentSsid(), StatusIcon.WIFI) }) { lastMainIndex = 0; showWifi(0) }
         row("Bluetooth", btState, { setLeft("Bluetooth", btState, StatusIcon.BLUETOOTH) }) { lastMainIndex = 1; showBluetooth(0) }
         row("Speed boost", "Free memory and faster animations", { setLeft("Speed boost", "Make the TV feel faster", -1, 0xFFE8590C.toInt()) }) { lastMainIndex = 2; showBoost(0) }
+        val home = getSharedPreferences("home", Context.MODE_PRIVATE)
+        val barHidden = home.getBoolean("hide_bar", false)
+        row("Status bar: " + if (barHidden) "Hidden" else "Shown", "Wi-Fi, Bluetooth and clock on the home screen", { setLeft("Status bar", if (barHidden) "Hidden" else "Shown", -1, 0xFF0B7285.toInt()) }) {
+            home.edit().putBoolean("hide_bar", !barHidden).apply(); lastMainIndex = 3; showMain(3)
+        }
         val items = listOf(
             Triple("Network and Internet", Settings.ACTION_WIRELESS_SETTINGS, 0xFF2B8A3E),
             Triple("Sound", Settings.ACTION_SOUND_SETTINGS, 0xFFC2255C),
@@ -209,7 +219,7 @@ class SettingsActivity : Activity() {
             Triple("All system settings", Settings.ACTION_SETTINGS, 0xFF212529)
         )
         items.forEachIndexed { n, it ->
-            row(it.first, null, { setLeft(it.first, "Open", -1, it.third.toInt()) }) { lastMainIndex = 3 + n; openSystem(it.second) }
+            row(it.first, null, { setLeft(it.first, "Open", -1, it.third.toInt()) }) { lastMainIndex = 4 + n; openSystem(it.second) }
         }
         focusAt(focusIndex)
     }
@@ -229,7 +239,7 @@ class SettingsActivity : Activity() {
             }
             val saved = wm.configuredNetworks?.map { it.SSID.removeSurrounding("\"") }?.toSet() ?: emptySet()
             val cur = wm.connectionInfo?.ssid?.removeSurrounding("\"")
-            android.util.Log.d("TVH", "scan size=${wm.scanResults?.size} coarse=${checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)} fine=${checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)}")
+            android.util.Log.d("TVH", "scan size=${wm.scanResults?.size}")
             val results = wm.scanResults.orEmpty().filter { it.SSID.isNotBlank() }
                 .groupBy { it.SSID }.map { e -> e.value.maxByOrNull { it.level }!! }.sortedByDescending { it.level }
             results.forEach { r ->
