@@ -1,20 +1,22 @@
 # Apple TV Home
 
+> **Guides:** [SETUP-NEW-BOX.md](SETUP-NEW-BOX.md) sets up a new Android TV box with one command. [CLAUDE.md](CLAUDE.md) holds the project notes for Claude Code and other contributors. [VolumeBar/](VolumeBar) is the separate volume app for the notification area.
+
 An Apple TV–style home screen for Android TV / Google TV, written in Kotlin with no extra libraries.
-Built for an old, low-memory TV (Android 8.0, 1.9 GB RAM), so it stays light.
+Built for old, low-memory TV boxes (tested on Android 5.1.1 and 8.0, 1.8 to 1.9 GB RAM), so it stays light.
 
 ## What it does
 
 - Frosted dock with a row of rounded app tiles. The selected tile pops up with a small bounce and a white outline.
 - Press Down for the "All apps" view: the first row rises, the other rows come up, the background dims and the app name appears under the selected tile. How far it rises depends on how many apps you have.
 - Rotating wallpapers with a slow zoom and cross-fade (`app/src/main/assets/wallpapers`). With no images the launcher draws its own mountain scene.
-- Fixed top bar: Bluetooth (when on), LAN (when the cable is connected), Wi-Fi network name, 12-hour clock and a settings button. Each item opens the matching Settings page.
-- Long-press OK (or press Menu) on an app: Move, Hide, Uninstall (or App info for built-in system apps). A "Hidden apps" tile brings hidden apps back.
+- Fixed top bar: Bluetooth (when on), LAN (when the cable is connected), Wi-Fi network name, a clock that opens Date and time settings, a volume button and a settings button. A large clock and date sit on the left (12 or 24 hour, chosen in Settings). Each item opens the matching Settings page.
+- Press and hold an app with the mouse and drag it to a new place; release without moving (or long-press OK, or press Menu) for Move, Hide, Uninstall (or App info for built-in system apps). A "Hidden apps" tile brings hidden apps back.
 - Apple TV–style Settings: Wi-Fi (scan, connect with password), Bluetooth (on/off, scan, pair, forget), Speed boost (free memory, animation speed) and shortcuts to the system Sound, Display, Apps, Storage, Date, Language, Accessibility and About screens.
 
 ## Download
 
-`releases/AppleTVHome-1.0.apk` (about 8.6 MB, debug-signed, Android 8.0 or newer).
+`releases/AppleTVHome-1.0.apk` (about 8.6 MB, debug-signed, Android 8.0 or newer; build from source for Android 5.0 and up).
 
 ## Quick download (Downloader app)
 
