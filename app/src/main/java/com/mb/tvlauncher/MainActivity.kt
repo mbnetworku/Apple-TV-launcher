@@ -392,11 +392,18 @@ class MainActivity : Activity() {
         if (pkg == null) return
         val from = visibleApps.indexOfFirst { it.pkg == pkg }
         val loc = IntArray(2)
-        val to = visibleApps.indexOfFirst { other ->
-            val t = if (other.pkg == pkg) null else findTile(other.pkg ?: return@indexOfFirst false)
-            t != null && run {
-                t.getLocationOnScreen(loc)
-                x >= loc[0] && x <= loc[0] + t.width && y >= loc[1] && y <= loc[1] + t.height
+        var to = -1
+        var best = Float.MAX_VALUE
+        visibleApps.forEachIndexed { idx, other ->
+            val t = other.pkg?.let { findTile(it) } ?: return@forEachIndexed
+            t.getLocationOnScreen(loc)
+            val cx = loc[0] + t.width / 2f
+            val cy = loc[1] + t.height / 2f
+            val d = (cx - x) * (cx - x) + (cy - y) * (cy - y)
+            if (d < best) { best = d; to = idx }
+            if (idx == visibleApps.size - 1) {
+                val afterLast = y > loc[1] + t.height || (y >= loc[1] && x > cx)
+                if (afterLast) { to = idx; best = 0f }
             }
         }
         if (from >= 0 && to >= 0 && to != from) {
