@@ -11,6 +11,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.ResolveInfo
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.PorterDuff
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
@@ -44,6 +45,9 @@ class MainActivity : Activity() {
     private lateinit var rows: LinearLayout
     private lateinit var scroll: ScrollView
     private lateinit var clock: TextView
+    private lateinit var bigClock: TextView
+    private lateinit var bigAmPm: TextView
+    private lateinit var bigDate: TextView
     private lateinit var btGroup: View
     private lateinit var lanGroup: View
     private lateinit var wifiGroup: View
@@ -58,7 +62,12 @@ class MainActivity : Activity() {
     private val prefs by lazy { getSharedPreferences("home", Context.MODE_PRIVATE) }
     private val tick = object : Runnable {
         override fun run() {
-            clock.text = SimpleDateFormat("h:mm a", Locale.US).format(Date())
+            val now = Date()
+            val h24 = prefs.getBoolean("clock24", false)
+            clock.text = SimpleDateFormat(if (h24) "HH:mm" else "h:mm a", Locale.US).format(now)
+            bigClock.text = SimpleDateFormat(if (h24) "HH:mm" else "h:mm", Locale.US).format(now)
+            bigAmPm.text = if (h24) "" else SimpleDateFormat("a", Locale.US).format(now)
+            bigDate.text = SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(now)
             updateStatus()
             handler.postDelayed(this, 5_000)
         }
@@ -140,7 +149,42 @@ class MainActivity : Activity() {
         lanGroup = statusGroup(StatusIcon.LAN, "LAN", null, "main")
         wifiText = TextView(this)
         wifiGroup = statusGroup(StatusIcon.WIFI, "Wi-Fi", wifiText, "wifi")
-        clock = TextView(this).apply { setTextColor(Color.WHITE); textSize = 20f }
+        clock = TextView(this).apply {
+            setTextColor(Color.WHITE); textSize = 20f
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            background = GradientDrawable().apply { cornerRadius = dp(18).toFloat(); setColor(Color.TRANSPARENT) }
+            isFocusable = true
+            isClickable = true
+            hoverFocus(this)
+            setOnClickListener { open(Intent(Settings.ACTION_DATE_SETTINGS)) }
+            setOnFocusChangeListener { v, has ->
+                (v.background as GradientDrawable).setColor(if (has) 0x55FFFFFF else Color.TRANSPARENT)
+                v.animate().scaleX(if (has) 1.1f else 1f).scaleY(if (has) 1.1f else 1f).setDuration(140).start()
+            }
+        }
+        bigClock = TextView(this).apply {
+            setTextColor(Color.WHITE); textSize = 96f; typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+            setShadowLayer(12f, 0f, 3f, 0xAA000000.toInt())
+        }
+        bigAmPm = TextView(this).apply {
+            setTextColor(Color.WHITE); textSize = 30f
+            setShadowLayer(10f, 0f, 2f, 0xAA000000.toInt())
+        }
+        bigDate = TextView(this).apply {
+            setTextColor(Color.WHITE); textSize = 28f
+            setShadowLayer(10f, 0f, 2f, 0xAA000000.toInt())
+        }
+        val bigTime = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.BOTTOM
+            addView(bigClock)
+            addView(bigAmPm, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(8); bottomMargin = dp(18) })
+        }
+        val bigBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(bigTime)
+            addView(bigDate)
+        }
         val gear = FrameLayout(this).apply {
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0x44FFFFFF) }
             isFocusable = true
@@ -171,6 +215,7 @@ class MainActivity : Activity() {
         scroll = ScrollView(this).apply { isVerticalScrollBarEnabled = false; clipChildren = false; clipToPadding = false }
         scroll.addView(rows)
         root.addView(scroll, FrameLayout.LayoutParams(-1, -1))
+        root.addView(bigBox, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { topMargin = dp(24); marginStart = dp(48) })
         root.addView(pill, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { topMargin = dp(28); marginEnd = dp(40) })
 
         setContentView(root)

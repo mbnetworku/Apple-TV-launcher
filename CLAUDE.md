@@ -3,7 +3,7 @@
 Android TV launcher in Kotlin (no AndroidX, minSdk 26, targetSdk 22). Package `com.mb.appletvlauncher`, code in `com.mb.tvlauncher`.
 
 ## Files
-- `MainActivity.kt`: home screen. Top bar (Bluetooth, LAN, Wi-Fi name, clock, gear), dock rows of app tiles, "All apps" mode on Down, Move/Hide/Uninstall menu, saved order and hidden apps in SharedPreferences `home`.
+- `MainActivity.kt`: home screen. Large clock and date top left (12/24-hour switch in Settings, key `clock24` in prefs `home`), top bar (Bluetooth, LAN, Wi-Fi name, clock that opens Date and time settings, gear), dock rows of app tiles, "All apps" mode on Down, Move/Hide/Uninstall menu, saved order and hidden apps in SharedPreferences `home`.
 - `SettingsActivity.kt`: Apple TV–style settings (Wi-Fi, Bluetooth, Speed boost, shortcuts to system screens). Accepts an intent extra `page` = `wifi` or `bt` to open that page directly.
 - `WallpaperView.kt`: cross-fades the images in `assets/wallpapers` every 40 s; falls back to `SceneView.kt` (drawn mountains) when the folder has no images.
 - `RoundFrame.kt`: clips a tile to rounded corners. `StatusIcon.kt`: drawn Wi-Fi, LAN, Bluetooth and gear icons.

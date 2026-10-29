@@ -206,6 +206,10 @@ class SettingsActivity : Activity() {
         row("Status bar: " + if (barHidden) "Hidden" else "Shown", "Wi-Fi, Bluetooth and clock on the home screen", { setLeft("Status bar", if (barHidden) "Hidden" else "Shown", -1, 0xFF0B7285.toInt()) }) {
             home.edit().putBoolean("hide_bar", !barHidden).apply(); lastMainIndex = 3; showMain(3)
         }
+        val h24 = home.getBoolean("clock24", false)
+        row("Clock: " + if (h24) "24-hour" else "12-hour", "Press OK to switch", { setLeft("Clock", if (h24) "24-hour" else "12-hour", -1, 0xFF5F3DC4.toInt()) }) {
+            home.edit().putBoolean("clock24", !h24).apply(); lastMainIndex = 4; showMain(4)
+        }
         val items = listOf(
             Triple("Network and Internet", Settings.ACTION_WIRELESS_SETTINGS, 0xFF2B8A3E),
             Triple("Sound", Settings.ACTION_SOUND_SETTINGS, 0xFFC2255C),
@@ -219,7 +223,7 @@ class SettingsActivity : Activity() {
             Triple("All system settings", Settings.ACTION_SETTINGS, 0xFF212529)
         )
         items.forEachIndexed { n, it ->
-            row(it.first, null, { setLeft(it.first, "Open", -1, it.third.toInt()) }) { lastMainIndex = 4 + n; openSystem(it.second) }
+            row(it.first, null, { setLeft(it.first, "Open", -1, it.third.toInt()) }) { lastMainIndex = 5 + n; openSystem(it.second) }
         }
         focusAt(focusIndex)
     }
