@@ -21,10 +21,11 @@ param(
     [int]$Port = 5555,
     [switch]$SkipBuild,
     [switch]$HideStatusBar,
-    [switch]$Debloat
+    [switch]$Debloat,
+    [string]$Gradle
 )
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'   # adb prints progress on stderr; real failures are checked and thrown below
 $root = Split-Path $PSScriptRoot -Parent
 $tv = "${TvIp}:$Port"
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -45,9 +46,10 @@ function Step([string]$t) { Write-Host "`n== $t" -ForegroundColor Cyan }
 
 Step "Connect to $tv"
 & $adb connect $tv | Out-Host
-$sdk = [int](Adb shell getprop ro.build.version.sdk).Trim()
-$rel = (Adb shell getprop ro.build.version.release).Trim()
-$abi = (Adb shell getprop ro.product.cpu.abilist).Trim()
+function Prop([string]$name) { ((Adb shell getprop $name) -join '').Trim() }
+$sdk = [int](Prop ro.build.version.sdk)
+$rel = Prop ro.build.version.release
+$abi = Prop ro.product.cpu.abilist
 Write-Host "Android $rel (API $sdk), CPU: $abi"
 if ($sdk -lt 21) { throw 'This launcher needs Android 5.0 (API 21) or newer.' }
 $hasRoot = ((Adb shell "su -c id") -join '') -match 'uid=0'
@@ -63,7 +65,7 @@ if ($hasRoot) { Su 'pm list packages -d' | Set-Content "$backup\disabled-before.
 
 if (-not $SkipBuild) {
     Step 'Build launcher and Volume Bar'
-    $gradle = (Get-Command gradle -ErrorAction SilentlyContinue).Source
+    $gradle = if ($Gradle) { $Gradle } else { (Get-Command gradle -ErrorAction SilentlyContinue).Source }
     if (-not $gradle -and (Test-Path "$root\gradlew.bat")) { $gradle = "$root\gradlew.bat" }
     if (-not $gradle) { throw 'Gradle not found. Install Gradle 8.7 or add a gradle wrapper.' }
     $sdkDir = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } elseif ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } else { $null }
