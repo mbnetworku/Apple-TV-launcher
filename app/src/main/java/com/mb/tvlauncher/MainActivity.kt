@@ -388,6 +388,25 @@ class MainActivity : Activity() {
         populate(keep = true, focusPkg = pkg)
     }
 
+    private fun dropOn(pkg: String?, x: Float, y: Float) {
+        if (pkg == null) return
+        val from = visibleApps.indexOfFirst { it.pkg == pkg }
+        val loc = IntArray(2)
+        val to = visibleApps.indexOfFirst { other ->
+            val t = if (other.pkg == pkg) null else findTile(other.pkg ?: return@indexOfFirst false)
+            t != null && run {
+                t.getLocationOnScreen(loc)
+                x >= loc[0] && x <= loc[0] + t.width && y >= loc[1] && y <= loc[1] + t.height
+            }
+        }
+        if (from >= 0 && to >= 0 && to != from) {
+            val item = visibleApps.removeAt(from)
+            visibleApps.add(to, item)
+            saveOrder(visibleApps.mapNotNull { it.pkg })
+        }
+        populate(keep = true, focusPkg = pkg)
+    }
+
     private fun endMove() {
         movingPkg = null
         Toast.makeText(this, "Placed", Toast.LENGTH_SHORT).show()
@@ -585,7 +604,48 @@ class MainActivity : Activity() {
                 }
             }
         }
-        if (app.kind == 0) card.setOnLongClickListener { showMenu(app); true }
+        if (app.kind == 0) {
+            var touching = false
+            var dragging = false
+            var moved = false
+            var startX = 0f
+            var startY = 0f
+            card.setOnLongClickListener {
+                if (touching) {
+                    dragging = true
+                    moved = false
+                    card.parent?.requestDisallowInterceptTouchEvent(true)
+                    wrapper.bringToFront()
+                    Toast.makeText(this, "Drag to move, release to place", Toast.LENGTH_SHORT).show()
+                } else {
+                    movingPkg = app.pkg
+                    Toast.makeText(this, "Use the arrows to move, press OK to place", Toast.LENGTH_LONG).show()
+                }
+                true
+            }
+            card.setOnTouchListener { _, ev ->
+                when (ev.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> { touching = true; startX = ev.rawX; startY = ev.rawY; false }
+                    android.view.MotionEvent.ACTION_MOVE -> if (dragging) {
+                        wrapper.translationX = ev.rawX - startX
+                        wrapper.translationY = ev.rawY - startY
+                        if (Math.abs(ev.rawX - startX) > dp(14) || Math.abs(ev.rawY - startY) > dp(14)) moved = true
+                        true
+                    } else false
+                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                        touching = false
+                        if (dragging) {
+                            dragging = false
+                            wrapper.translationX = 0f
+                            wrapper.translationY = 0f
+                            if (moved) dropOn(app.pkg, ev.rawX, ev.rawY) else showMenu(app)
+                            true
+                        } else false
+                    }
+                    else -> false
+                }
+            }
+        }
         return wrapper
     }
 
