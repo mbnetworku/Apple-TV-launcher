@@ -615,7 +615,8 @@ class MainActivity : Activity() {
                     dragging = true
                     moved = false
                     card.parent?.requestDisallowInterceptTouchEvent(true)
-                    wrapper.bringToFront()
+                    wrapper.translationZ = dp(12).toFloat()
+                    (wrapper.parent as? View)?.translationZ = dp(12).toFloat()
                     Toast.makeText(this, "Drag to move, release to place", Toast.LENGTH_SHORT).show()
                 } else {
                     movingPkg = app.pkg
@@ -638,6 +639,8 @@ class MainActivity : Activity() {
                             dragging = false
                             wrapper.translationX = 0f
                             wrapper.translationY = 0f
+                            wrapper.translationZ = 0f
+                            (wrapper.parent as? View)?.translationZ = 0f
                             if (moved) dropOn(app.pkg, ev.rawX, ev.rawY) else showMenu(app)
                             true
                         } else false
