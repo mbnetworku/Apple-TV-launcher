@@ -271,7 +271,6 @@ class MainActivity : Activity() {
         }
         volPanel.setOnGenericMotionListener(wheel)
         val gap = dp(6)
-        pill.addView(volGroup, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = gap })
         pill.addView(btGroup, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = gap })
         pill.addView(lanGroup, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = gap })
         pill.addView(wifiGroup, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = gap })
@@ -291,7 +290,6 @@ class MainActivity : Activity() {
         root.addView(scroll, FrameLayout.LayoutParams(-1, -1))
         root.addView(bigBox, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { topMargin = dp(24); marginStart = dp(48) })
         root.addView(pill, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { topMargin = dp(28); marginEnd = dp(40) })
-        root.addView(volPanel, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER_HORIZONTAL or Gravity.TOP).apply { topMargin = dp(110) })
 
         setContentView(root)
     }
