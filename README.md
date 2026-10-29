@@ -1,6 +1,6 @@
 # Apple TV Home
 
-> **Guides:** [SETUP-NEW-BOX.md](SETUP-NEW-BOX.md) sets up a new Android TV box with one command. [CLAUDE.md](CLAUDE.md) holds the project notes for Claude Code and other contributors. [VolumeBar/](VolumeBar) is the separate volume app for the notification area.
+> **Guides:** [SETUP-NEW-BOX.md](SETUP-NEW-BOX.md) sets up a new Android TV box with one command. [CLAUDE.md](CLAUDE.md) holds the project notes for Claude Code and other contributors. [VolumeBar/](VolumeBar) is the separate volume app for the notification area. [PURPOSE.md](PURPOSE.md) explains why this launcher exists and its benefits. See also the [license (MIT)](LICENSE), the [code of conduct](CODE_OF_CONDUCT.md) and the [security policy](SECURITY.md).
 
 An Apple TV–style home screen for Android TV / Google TV, written in Kotlin with no extra libraries.
 Built for old, low-memory TV boxes (tested on Android 5.1.1 and 8.0, 1.8 to 1.9 GB RAM), so it stays light.
