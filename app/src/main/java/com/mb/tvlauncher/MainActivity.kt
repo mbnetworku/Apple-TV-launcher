@@ -48,6 +48,40 @@ class MainActivity : Activity() {
     private lateinit var bigClock: TextView
     private lateinit var bigAmPm: TextView
     private lateinit var bigDate: TextView
+    private lateinit var bigBox: LinearLayout
+    private lateinit var volGroup: View
+    private lateinit var volText: TextView
+    private lateinit var volBar: View
+    private lateinit var volPanel: LinearLayout
+    private lateinit var volPanelText: TextView
+    private val audio by lazy { getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager }
+    private val hideVolume = Runnable { volPanel.visibility = View.GONE }
+
+    private fun volPercent(): Int {
+        val max = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        return audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) * 100 / max
+    }
+
+    private fun refreshVolume() {
+        val p = volPercent()
+        volText.text = "$p%"
+        volPanelText.text = "Volume  $p%"
+        (volBar.layoutParams as FrameLayout.LayoutParams).width = dp(520) * p / 100
+        volBar.requestLayout()
+    }
+
+    private fun showVolume() {
+        refreshVolume()
+        volPanel.visibility = View.VISIBLE
+        volGroup.requestFocus()
+        handler.removeCallbacks(hideVolume)
+        handler.postDelayed(hideVolume, 8_000)
+    }
+
+    private fun stepVolume(dir: Int) {
+        audio.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, if (dir > 0) android.media.AudioManager.ADJUST_RAISE else android.media.AudioManager.ADJUST_LOWER, 0)
+        showVolume()
+    }
     private lateinit var btGroup: View
     private lateinit var lanGroup: View
     private lateinit var wifiGroup: View
@@ -67,6 +101,7 @@ class MainActivity : Activity() {
             clock.text = SimpleDateFormat(if (h24) "HH:mm" else "h:mm a", Locale.US).format(now)
             bigClock.text = SimpleDateFormat(if (h24) "HH:mm" else "h:mm", Locale.US).format(now)
             bigAmPm.text = if (h24) "" else SimpleDateFormat("a", Locale.US).format(now)
+            volText.text = "${volPercent()}%"
             bigDate.text = SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(now)
             updateStatus()
             handler.postDelayed(this, 5_000)
@@ -180,7 +215,7 @@ class MainActivity : Activity() {
             addView(bigClock)
             addView(bigAmPm, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(8); bottomMargin = dp(18) })
         }
-        val bigBox = LinearLayout(this).apply {
+        bigBox = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(bigTime)
             addView(bigDate)
@@ -197,7 +232,46 @@ class MainActivity : Activity() {
                 v.animate().scaleX(if (has) 1.2f else 1f).scaleY(if (has) 1.2f else 1f).setDuration(140).start()
             }
         }
+        volText = TextView(this)
+        volGroup = statusGroup(StatusIcon.VOLUME, "", volText, null).apply {
+            visibility = View.VISIBLE
+            setOnClickListener { showVolume() }
+        }
+        volBar = View(this).apply { background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFFFFFFFF.toInt()) } }
+        val volTrack = FrameLayout(this).apply {
+            background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0x55FFFFFF) }
+            addView(volBar, FrameLayout.LayoutParams(0, -1))
+            setOnTouchListener { v, ev ->
+                if (ev.action == android.view.MotionEvent.ACTION_DOWN || ev.action == android.view.MotionEvent.ACTION_MOVE) {
+                    val max = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                    val frac = (ev.x / v.width).coerceIn(0f, 1f)
+                    audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, Math.round(frac * max), 0)
+                    showVolume()
+                }
+                true
+            }
+        }
+        val wheel = View.OnGenericMotionListener { _, ev ->
+            if (ev.action == android.view.MotionEvent.ACTION_SCROLL) {
+                stepVolume(if (ev.getAxisValue(android.view.MotionEvent.AXIS_VSCROLL) > 0) 1 else -1)
+                true
+            } else false
+        }
+        volGroup.setOnGenericMotionListener(wheel)
+        volPanelText = TextView(this).apply { setTextColor(Color.WHITE); textSize = 28f; gravity = Gravity.CENTER }
+        volPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            visibility = View.GONE
+            setPadding(dp(36), dp(20), dp(36), dp(24))
+            background = GradientDrawable().apply { cornerRadius = dp(26).toFloat(); setColor(0xCC000000.toInt()); setStroke(1, 0x66FFFFFF) }
+            addView(volPanelText, LinearLayout.LayoutParams(-2, -2))
+            addView(volTrack, LinearLayout.LayoutParams(dp(520), dp(14)).apply { topMargin = dp(14) })
+            addView(TextView(this@MainActivity).apply { setTextColor(0xAAFFFFFF.toInt()); textSize = 16f; gravity = Gravity.CENTER; text = "Left / Right to change, OK to close" }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(12) })
+        }
+        volPanel.setOnGenericMotionListener(wheel)
         val gap = dp(6)
+        pill.addView(volGroup, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = gap })
         pill.addView(btGroup, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = gap })
         pill.addView(lanGroup, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = gap })
         pill.addView(wifiGroup, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = gap })
@@ -217,6 +291,7 @@ class MainActivity : Activity() {
         root.addView(scroll, FrameLayout.LayoutParams(-1, -1))
         root.addView(bigBox, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { topMargin = dp(24); marginStart = dp(48) })
         root.addView(pill, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { topMargin = dp(28); marginEnd = dp(40) })
+        root.addView(volPanel, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER_HORIZONTAL or Gravity.TOP).apply { topMargin = dp(110) })
 
         setContentView(root)
     }
@@ -262,6 +337,7 @@ class MainActivity : Activity() {
         if (gridMode == on) return
         gridMode = on
         dim.animate().alpha(if (on) 0.6f else 0f).setDuration(350).start()
+        bigBox.animate().alpha(if (on) 0f else 1f).setDuration(350).start()
         val target = if (on) maxOf(0, spacerH - gridTop) else 0
         ObjectAnimator.ofInt(scroll, "scrollY", scroll.scrollY, target).setDuration(420).apply {
             interpolator = DecelerateInterpolator(1.6f)
@@ -272,6 +348,15 @@ class MainActivity : Activity() {
     override fun onBackPressed() { }
 
     override fun dispatchKeyEvent(e: KeyEvent): Boolean {
+        if (volPanel.visibility == View.VISIBLE) {
+            if (e.action == KeyEvent.ACTION_DOWN) {
+                when (e.keyCode) {
+                    KeyEvent.KEYCODE_DPAD_LEFT -> { stepVolume(-1); return true }
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> { stepVolume(1); return true }
+                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BACK -> { handler.removeCallbacks(hideVolume); volPanel.visibility = View.GONE; return true }
+                }
+            } else return true
+        }
         if (movingPkg != null) {
             if (e.action == KeyEvent.ACTION_DOWN) {
                 when (e.keyCode) {
@@ -425,11 +510,12 @@ class MainActivity : Activity() {
         val rowCount = (display.size + perRow - 1) / perRow
         val rowH = tileH + dp(48) + dp(30)
         val gridH = rowCount * rowH + dp(40)
-        gridTop = maxOf(dp(92), (resources.displayMetrics.heightPixels - gridH) / 2)
+        gridTop = maxOf(dp(150),(resources.displayMetrics.heightPixels - gridH) / 2)
         if (!keep) {
             gridMode = false
             scroll.scrollTo(0, 0)
             dim.alpha = 0f
+            bigBox.alpha = 1f
         }
         val target = focusPkg?.let { findTile(it) } ?: firstTile()
         target?.post { target.requestFocus() }

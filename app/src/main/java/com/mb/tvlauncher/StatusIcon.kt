@@ -15,6 +15,7 @@ class StatusIcon(context: Context, private val kind: Int) : View(context) {
         const val LAN = 1
         const val BLUETOOTH = 2
         const val GEAR = 3
+        const val VOLUME = 4
     }
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -68,6 +69,21 @@ class StatusIcon(context: Context, private val kind: Int) : View(context) {
                 gear.close()
                 gear.addCircle(cx, cy, w * 0.16f, Path.Direction.CW)
                 c.drawPath(gear, fill)
+            }
+            VOLUME -> {
+                val sp = Path()
+                sp.moveTo(w * 0.08f, h * 0.38f)
+                sp.lineTo(w * 0.28f, h * 0.38f)
+                sp.lineTo(w * 0.50f, h * 0.18f)
+                sp.lineTo(w * 0.50f, h * 0.82f)
+                sp.lineTo(w * 0.28f, h * 0.62f)
+                sp.lineTo(w * 0.08f, h * 0.62f)
+                sp.close()
+                c.drawPath(sp, fill)
+                for (i in 1..2) {
+                    val r = w * 0.17f * i
+                    c.drawArc(RectF(w * 0.5f - r, h / 2 - r, w * 0.5f + r, h / 2 + r), -45f, 90f, false, paint)
+                }
             }
             else -> {
                 val p = Path()
