@@ -5,6 +5,20 @@
 An Apple TV–style home screen for Android TV / Google TV, written in Kotlin with no extra libraries.
 Built for old, low-memory TV boxes (tested on Android 5.1.1 and 8.0, 1.8 to 1.9 GB RAM), so it stays light.
 
+## Set up a new TV box with one command
+
+On a PC with adb, JDK 17, the Android SDK (platform 34, build-tools 34.0.0) and Gradle 8.7, with network ADB turned on in the box's Developer options:
+
+```powershell
+git clone https://github.com/mbnetworku/Apple-TV-launcher.git
+cd Apple-TV-launcher
+powershell -ExecutionPolicy Bypass -File tools\Setup-New-Box.ps1 -TvIp <TV_IP> -Debloat -HideStatusBar
+```
+
+It connects to the box, backs up the package lists, builds and installs the launcher and Volume Bar, makes the launcher the only Home app (root needed), and writes an undo script. Run it with `-SkipBuild` to use prebuilt APKs from `dist\`. With Claude Code, say: "Set up my new TV box at <TV_IP> using SETUP-NEW-BOX.md".
+
+Full step-by-step commands, the debloat list, undo and troubleshooting: [SETUP-NEW-BOX.md](SETUP-NEW-BOX.md).
+
 ## What it does
 
 - Frosted dock with a row of rounded app tiles. The selected tile pops up with a small bounce and a white outline.
