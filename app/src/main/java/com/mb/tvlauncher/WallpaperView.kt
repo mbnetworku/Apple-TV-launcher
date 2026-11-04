@@ -16,29 +16,78 @@ import java.util.concurrent.Executors
 
 class WallpaperView(context: Context) : FrameLayout(context) {
 
-    private val names: List<String> = (context.assets.list("wallpapers") ?: emptyArray())
-        .filter { it.lowercase().let { n -> n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png") || n.endsWith(".webp") } }
-        .sorted()
+    companion object {
+        // Settings > Wallpaper writes these to the "home" preferences.
+        const val PREF_FIXED = "wp_fixed"       // file name of the one wallpaper to keep, or absent = rotate all
+        const val PREF_INTERVAL = "wp_interval" // ms between wallpapers when rotating
+        const val PREF_ZOOM = "wp_zoom"         // slow zoom while a wallpaper is shown
+        const val DEFAULT_INTERVAL = 40_000L
+        const val FIXED_OFF = "off"             // PREF_FIXED value: no wallpaper, plain dark background
+
+        fun isOff(context: Context) =
+            context.getSharedPreferences("home", Context.MODE_PRIVATE).getString(PREF_FIXED, null) == FIXED_OFF
+
+        fun wallpaperNames(context: Context): List<String> = (context.assets.list("wallpapers") ?: emptyArray())
+            .filter { it.lowercase().let { n -> n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png") || n.endsWith(".webp") } }
+            .sorted()
+    }
+
+    private val names: List<String> = wallpaperNames(context)
+    private val prefs = context.getSharedPreferences("home", Context.MODE_PRIVATE)
     private val views = arrayOf(ImageView(context), ImageView(context))
     private val handler = Handler(Looper.getMainLooper())
     private val loader = Executors.newSingleThreadExecutor()
     private var index = (System.currentTimeMillis() % maxOf(names.size, 1)).toInt()
     private var front = 0
     private var running = false
-    private val interval = 40_000L
+    private var interval = DEFAULT_INTERVAL
+    private var zoom = true
+    private var fixed: String? = null
+    private var off = false
+    private var shownFixed: String? = null
+    private var scene: View? = null
     private val fadeMs = 1_500L
+
+    private fun readPrefs() {
+        interval = prefs.getLong(PREF_INTERVAL, DEFAULT_INTERVAL).coerceAtLeast(5_000L)
+        zoom = prefs.getBoolean(PREF_ZOOM, true)
+        val f = prefs.getString(PREF_FIXED, null)
+        off = f == FIXED_OFF
+        fixed = f?.takeIf { it in names }
+    }
+
+    // Wallpaper off: drop the pictures (frees their memory) and show only the plain background.
+    private fun applyOff() {
+        scene?.visibility = if (off) GONE else VISIBLE
+        if (off) for (v in views) { v.animate().cancel(); v.alpha = 0f; v.setImageDrawable(null) }
+    }
 
     private val advance = object : Runnable {
         override fun run() {
             if (!running) return
+            if (off) { shownFixed = null; return }
+            val one = fixed
+            if (one != null) {
+                // One chosen wallpaper: show it once and stop rotating.
+                if (shownFixed != one) { shownFixed = one; load(one) }
+                return
+            }
+            shownFixed = null
             loadNext()
             handler.postDelayed(this, interval)
         }
     }
 
+    // Settings calls this after a change so the new choice shows straight away.
+    fun reload() {
+        halt()
+        shownFixed = null
+        if (isAttachedToWindow && windowVisibility == VISIBLE) begin()
+    }
+
     init {
         setBackgroundColor(0xFF0A0F1E.toInt())
-        if (names.isEmpty()) addView(SceneView(context), LayoutParams(-1, -1))
+        if (names.isEmpty()) scene = SceneView(context).also { addView(it, LayoutParams(-1, -1)) }
         for (v in views) {
             v.scaleType = ImageView.ScaleType.CENTER_CROP
             v.alpha = 0f
@@ -60,9 +109,13 @@ class WallpaperView(context: Context) : FrameLayout(context) {
         if (names.isEmpty()) return
         val name = names[index % names.size]
         index++
+        load(name)
+    }
+
+    private fun load(name: String) {
         loader.execute {
             val bmp = decode(name) ?: return@execute
-            handler.post { if (running) show(bmp) }
+            handler.post { if (running && !off) show(bmp) }
         }
     }
 
@@ -77,7 +130,14 @@ class WallpaperView(context: Context) : FrameLayout(context) {
         incoming.scaleY = 1.07f
         incoming.alpha = 0f
         incoming.animate().cancel()
-        incoming.animate().scaleX(1.15f).scaleY(1.15f).setDuration(interval + 2 * fadeMs).setInterpolator(LinearInterpolator()).start()
+        if (zoom) {
+            // A fixed wallpaper zooms slowly over 2 minutes; a rotating one over its time on screen.
+            val span = if (fixed != null) 120_000L else interval + 2 * fadeMs
+            incoming.animate().scaleX(1.15f).scaleY(1.15f).setDuration(span).setInterpolator(LinearInterpolator()).start()
+        } else {
+            incoming.scaleX = 1f
+            incoming.scaleY = 1f
+        }
         ObjectAnimator.ofFloat(incoming, View.ALPHA, 0f, 1f).setDuration(fadeMs).start()
         ObjectAnimator.ofFloat(old, View.ALPHA, old.alpha, 0f).setDuration(fadeMs).apply {
             addListener(object : AnimatorListenerAdapter() {
@@ -91,6 +151,8 @@ class WallpaperView(context: Context) : FrameLayout(context) {
 
     private fun begin() {
         if (running) return
+        readPrefs()
+        applyOff()
         running = true
         handler.post(advance)
     }
