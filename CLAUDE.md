@@ -56,3 +56,4 @@ Needs: JDK 17, Android SDK platform 34 + build-tools 34.0.0, platform-tools (`ad
 - 1.0.4: hold and drag apps with the mouse; new wallpaper.
 - 1.0.5 / 1.0.6: volume button removed, then put back next to Bluetooth.
 - VolumeBar 1.0 / 1.1: notification-only volume control; 1.1 has the blue speaker icon.
+- 1.0.7 to 1.1.8: Input button in the top bar and the remote's Source key open the TV's own input menu (`com.toptech.tv.action.INPUT_ACTIVITY`); the launcher listens for the TV menu's Source-key broadcast (`SourceKeyReceiver`) because the TV menu only reacts when the stock launcher is Home. Settings: Storage page with real numbers, Icon size, Favorite apps, Start-up input (`BootReceiver`). All system apps with a screen show in the grid. Release build (not debuggable) for smoother frames. In-launcher player (`InputActivity`) and pop-up list (`InputPickerActivity`) remain as a fallback for TVs without the vendor menu.

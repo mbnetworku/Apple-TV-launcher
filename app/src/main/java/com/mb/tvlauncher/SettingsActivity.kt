@@ -17,8 +17,10 @@ import android.net.wifi.ScanResult
 import android.net.wifi.WifiConfiguration
 import android.net.wifi.WifiManager
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.os.StatFs
 import android.provider.Settings
 import android.text.InputType
 import android.view.Gravity
@@ -29,6 +31,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import java.util.Locale
 
 class SettingsActivity : Activity() {
 
@@ -201,21 +204,40 @@ class SettingsActivity : Activity() {
         row("Wi-Fi", currentSsid(), { setLeft("Wi-Fi", currentSsid(), StatusIcon.WIFI) }) { lastMainIndex = 0; showWifi(0) }
         row("Bluetooth", btState, { setLeft("Bluetooth", btState, StatusIcon.BLUETOOTH) }) { lastMainIndex = 1; showBluetooth(0) }
         row("Speed boost", "Free memory and faster animations", { setLeft("Speed boost", "Make the TV feel faster", -1, 0xFFE8590C.toInt()) }) { lastMainIndex = 2; showBoost(0) }
+        val storage = storageSummary()
+        row("Storage", storage, { setLeft("Storage", storage, -1, STORAGE_COLOR) }) { lastMainIndex = 3; showStorage(0) }
         val home = getSharedPreferences("home", Context.MODE_PRIVATE)
+        val sizes = listOf("Small" to 8, "Medium" to 6, "Large" to 5, "Extra large" to 4)
+        val cols = home.getInt("cols", 6)
+        val sizeName = sizes.firstOrNull { it.second == cols }?.first ?: "Medium"
+        row("Icon size: $sizeName", "How big the app icons are on the home screen", { setLeft("Icon size", sizeName, -1, 0xFFD9480F.toInt()) }) {
+            AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle("Icon size")
+                .setItems(sizes.map { "${it.first}  (${it.second} per row)" }.toTypedArray()) { _, w ->
+                    home.edit().putInt("cols", sizes[w].second).apply(); lastMainIndex = 4; showMain(4)
+                }.show()
+        }
+        val favList = (home.getString("favs", "") ?: "").split("|").filter { it.isNotEmpty() }
+        row("Favorite apps", if (favList.isEmpty()) "Pick the apps shown first on the home screen" else "${favList.size} chosen", { setLeft("Favorite apps", if (favList.isEmpty()) "None chosen" else "${favList.size} chosen", -1, 0xFFF59F00.toInt()) }) {
+            lastMainIndex = 5; pickFavorites(home)
+        }
+        val startLabel = home.getString("startup_label", null)
+        row("Start-up input: " + (startLabel ?: "Off"), "Open this input automatically when the TV starts", { setLeft("Start-up input", startLabel ?: "Off", -1, 0xFF2F9E44.toInt()) }) {
+            lastMainIndex = 6; pickStartupInput(home)
+        }
         val barHidden = home.getBoolean("hide_bar", false)
         row("Status bar: " + if (barHidden) "Hidden" else "Shown", "Wi-Fi, Bluetooth and clock on the home screen", { setLeft("Status bar", if (barHidden) "Hidden" else "Shown", -1, 0xFF0B7285.toInt()) }) {
-            home.edit().putBoolean("hide_bar", !barHidden).apply(); lastMainIndex = 3; showMain(3)
+            home.edit().putBoolean("hide_bar", !barHidden).apply(); lastMainIndex = 7; showMain(7)
         }
         val h24 = home.getBoolean("clock24", false)
         row("Clock: " + if (h24) "24-hour" else "12-hour", "Press OK to switch", { setLeft("Clock", if (h24) "24-hour" else "12-hour", -1, 0xFF5F3DC4.toInt()) }) {
-            home.edit().putBoolean("clock24", !h24).apply(); lastMainIndex = 4; showMain(4)
+            home.edit().putBoolean("clock24", !h24).apply(); lastMainIndex = 8; showMain(8)
         }
         val items = listOf(
             Triple("Network and Internet", Settings.ACTION_WIRELESS_SETTINGS, 0xFF2B8A3E),
             Triple("Sound", Settings.ACTION_SOUND_SETTINGS, 0xFFC2255C),
             Triple("Display", Settings.ACTION_DISPLAY_SETTINGS, 0xFF7048E8),
             Triple("Apps", Settings.ACTION_APPLICATION_SETTINGS, 0xFF1098AD),
-            Triple("Storage", Settings.ACTION_INTERNAL_STORAGE_SETTINGS, 0xFF5C677D),
             Triple("Date and time", Settings.ACTION_DATE_SETTINGS, 0xFF495057),
             Triple("Language", Settings.ACTION_LOCALE_SETTINGS, 0xFF5F3DC4),
             Triple("Accessibility", Settings.ACTION_ACCESSIBILITY_SETTINGS, 0xFF1864AB),
@@ -223,9 +245,50 @@ class SettingsActivity : Activity() {
             Triple("All system settings", Settings.ACTION_SETTINGS, 0xFF212529)
         )
         items.forEachIndexed { n, it ->
-            row(it.first, null, { setLeft(it.first, "Open", -1, it.third.toInt()) }) { lastMainIndex = 5 + n; openSystem(it.second) }
+            row(it.first, null, { setLeft(it.first, "Open", -1, it.third.toInt()) }) { lastMainIndex = 9 + n; openSystem(it.second) }
         }
         focusAt(focusIndex)
+    }
+
+    // Pick the input (HDMI 1-3, AV, VGA, antenna) that opens by itself a few seconds after the TV starts.
+    private fun pickStartupInput(home: android.content.SharedPreferences) {
+        val tim = getSystemService(Context.TV_INPUT_SERVICE) as android.media.tv.TvInputManager
+        val inputs = runCatching { tim.tvInputList }.getOrDefault(emptyList()).mapNotNull { info ->
+            val l = runCatching { info.loadLabel(this)?.toString() }.getOrNull()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            Triple(info.id, l, info.type)
+        }.sortedWith(compareBy({ if (it.third == android.media.tv.TvInputInfo.TYPE_TUNER) 1 else 0 }, { it.second.lowercase() }))
+        val names = (listOf("Off (show the home screen)") + inputs.map { it.second }).toTypedArray()
+        AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+            .setTitle("Start-up input")
+            .setItems(names) { _, w ->
+                val e = home.edit()
+                if (w == 0) e.remove("startup_input").remove("startup_label")
+                else e.putString("startup_input", inputs[w - 1].first).putString("startup_label", inputs[w - 1].second)
+                e.apply()
+                showMain(6)
+            }.show()
+    }
+
+    // Tick the apps that should come first on the home screen (in the order they were ticked).
+    private fun pickFavorites(home: android.content.SharedPreferences) {
+        val apps = (home.getString("applist", "") ?: "").split("\n").mapNotNull {
+            val p = it.split("\t", limit = 2); if (p.size == 2 && p[0].isNotEmpty()) p[0] to p[1] else null
+        }
+        if (apps.isEmpty()) { Toast.makeText(this, "Open the home screen once, then try again", Toast.LENGTH_LONG).show(); return }
+        val old = (home.getString("favs", "") ?: "").split("|").filter { it.isNotEmpty() }
+        val sorted = apps.sortedBy { it.second.lowercase() }
+        val checked = BooleanArray(sorted.size) { sorted[it].first in old }
+        AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+            .setTitle("Favorite apps: tick to show first")
+            .setMultiChoiceItems(sorted.map { it.second }.toTypedArray(), checked) { _, i, c -> checked[i] = c }
+            .setPositiveButton("Save") { _, _ ->
+                val chosen = sorted.indices.filter { checked[it] }.map { sorted[it].first }
+                val ordered = old.filter { it in chosen } + chosen.filter { it !in old }
+                home.edit().putString("favs", ordered.joinToString("|")).apply()
+                showMain(5)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun secured(r: ScanResult) = r.capabilities.contains("WPA") || r.capabilities.contains("WEP") || r.capabilities.contains("PSK")
@@ -336,6 +399,85 @@ class SettingsActivity : Activity() {
         focusAt(focusIndex)
     }
 
+    // ---- Storage: real numbers from the file system, in the same units as Android's own Settings (1 GB = 1000 MB) ----
+
+    private val STORAGE_COLOR = 0xFF5C677D.toInt()
+    private var userFiles: Long? = null
+
+    private class Space(val total: Long, val free: Long) { val used: Long get() = total - free }
+
+    private fun size(bytes: Long): String =
+        if (bytes >= 1_000_000_000L && bytes % 1_000_000_000L == 0L) "${bytes / 1_000_000_000L} GB"
+        else if (bytes >= 1_000_000_000L) String.format(Locale.US, "%.2f GB", bytes / 1e9)
+        else String.format(Locale.US, "%d MB", bytes / 1_000_000L)
+
+    private fun space(path: String): Space? = runCatching { StatFs(path).let { Space(it.totalBytes, it.availableBytes) } }.getOrNull()
+
+    private fun dataSpace(): Space = space(Environment.getDataDirectory().path) ?: Space(0, 0)
+
+    // The whole flash chip (system, firmware and the space for apps together). Exact size when the kernel lets apps
+    // read it; otherwise Android's own figure for the device's storage (the size it was sold as, e.g. 8 GB).
+    private fun chipBytes(): Long? =
+        runCatching { java.io.File("/sys/block/mmcblk0/size").readText().trim().toLong() * 512 }.getOrNull()?.takeIf { it > 0 }
+            ?: if (android.os.Build.VERSION.SDK_INT >= 26) runCatching {
+                (getSystemService(Context.STORAGE_STATS_SERVICE) as android.app.usage.StorageStatsManager)
+                    .getTotalBytes(android.os.storage.StorageManager.UUID_DEFAULT)
+            }.getOrNull()?.takeIf { it > 0 } else null
+
+    // Android refuses to install or update apps when free space falls below this (5% of the total, at most 500 MiB).
+    private fun lowBytes(total: Long): Long {
+        val pct = Settings.Global.getInt(contentResolver, "sys_storage_threshold_percentage", 5)
+        val max = Settings.Global.getLong(contentResolver, "sys_storage_threshold_max_bytes", 500L * 1024 * 1024)
+        return minOf(total * pct / 100, max)
+    }
+
+    private fun storageSummary(): String { val d = dataSpace(); return "${size(d.free)} free of ${size(d.total)}" }
+
+    private fun folderBytes(f: java.io.File): Long =
+        if (f.isFile) f.length() else (f.listFiles()?.sumOf { folderBytes(it) } ?: 0L)
+
+    // Downloads, pictures, videos and other files in shared storage (app folders under Android/ count as app data).
+    private fun measureUserFiles(): Long =
+        Environment.getExternalStorageDirectory().listFiles()?.filter { it.name != "Android" }?.sumOf { folderBytes(it) } ?: 0L
+
+    private fun addBar(box: View, pct: Int, color: Int) {
+        val p = pct.coerceIn(0, 100)
+        val track = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = GradientDrawable().apply { cornerRadius = dp(4).toFloat(); setColor(0x66888888) }
+        }
+        track.addView(View(this).apply { background = GradientDrawable().apply { cornerRadius = dp(4).toFloat(); setColor(color) } }, LinearLayout.LayoutParams(0, -1, p.toFloat()))
+        track.addView(View(this), LinearLayout.LayoutParams(0, -1, (100 - p).toFloat()))
+        (box as LinearLayout).addView(track, LinearLayout.LayoutParams(-1, dp(10)).apply { topMargin = dp(10) })
+    }
+
+    private fun showStorage(focusIndex: Int, measure: Boolean = true) {
+        startPage("storage")
+        val d = dataSpace()
+        val low = lowBytes(d.total)
+        val pct = if (d.total > 0) (d.used * 100 / d.total).toInt() else 0
+        val left = { setLeft("Storage", "${size(d.free)} free", -1, STORAGE_COLOR) }
+        val top = row("Space for apps and files: ${size(d.total)}", "Used ${size(d.used)} ($pct%)   ·   Free ${size(d.free)}", left) { }
+        addBar(top, pct, if (d.free < low * 2) 0xFFE03131.toInt() else 0xFF4DABF7.toInt())
+        row("Room to install apps: ${size(maxOf(0L, d.free - low))}", "Android always keeps ${size(low)} free and stops installs below that", left) { }
+        val files = userFiles
+        row("Your files: " + (files?.let { size(it) } ?: "measuring…"), "Downloads, pictures, videos and other files", left) { }
+        row("Apps and app data: " + (files?.let { size(maxOf(0L, d.used - it)) } ?: "measuring…"), "Installed apps with their data and cache, plus Android's own files", left) { }
+        space(Environment.getRootDirectory().path)?.let { s ->
+            row("Android system: ${size(s.total)}", "Read-only part of the chip, not counted above", left) { }
+        }
+        chipBytes()?.let { c -> row("Whole storage chip: ${size(c)}", "Space for apps and files + Android system + firmware", left) { } }
+        row("Open the TV's storage settings", "Clear an app's cache or data", left) { openSystem(Settings.ACTION_INTERNAL_STORAGE_SETTINGS) }
+        focusAt(focusIndex)
+        if (measure) Thread {
+            val b = runCatching { measureUserFiles() }.getOrNull()
+            handler.post {
+                userFiles = b
+                if (page == "storage" && b != null) showStorage(currentFocus?.let { list.indexOfChild(it) }?.takeIf { it >= 0 } ?: 0, measure = false)
+            }
+        }.start()
+    }
+
     private fun freeMb(): Long {
         val mi = ActivityManager.MemoryInfo()
         (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(mi)
@@ -365,7 +507,13 @@ class SettingsActivity : Activity() {
         }
         val s = animScale()
         val name = if (s == 0f) "Off" else if (s < 1f) "Fast (${s}x)" else "Normal"
-        row("Animations", name, { setLeft("Animations", name, -1, 0xFFE8590C.toInt()) }) {
+        val canSet = checkCallingOrSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED
+        row("Animations", if (canSet) name else "$name  ·  OK opens Developer options", { setLeft("Animations", name, -1, 0xFFE8590C.toInt()) }) {
+            if (!canSet) {
+                Toast.makeText(this, "Set Window, Transition and Animator scale to 0.5x", Toast.LENGTH_LONG).show()
+                openSystem(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+                return@row
+            }
             AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
                 .setTitle("System animations")
                 .setItems(arrayOf("Off (fastest)", "Fast (0.5x)", "Normal (1x)")) { _, w ->
