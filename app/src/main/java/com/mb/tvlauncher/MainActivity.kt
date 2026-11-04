@@ -49,6 +49,7 @@ class MainActivity : Activity() {
     private lateinit var bigAmPm: TextView
     private lateinit var bigDate: TextView
     private lateinit var bigBox: LinearLayout
+    private lateinit var inputGroup: View
     private lateinit var volGroup: View
     private lateinit var volText: TextView
     private lateinit var volBar: View
@@ -108,7 +109,8 @@ class MainActivity : Activity() {
         }
     }
 
-    private val perRow = 6
+    // Icons per row: 8 = small, 6 = medium (default), 5 = large, 4 = extra large (set in Settings > Icon size).
+    private val perRow: Int get() = prefs.getInt("cols", 6).coerceIn(3, 8)
     private lateinit var pill: LinearLayout
 
     private fun hoverFocus(v: View) {
@@ -258,6 +260,10 @@ class MainActivity : Activity() {
             } else false
         }
         volGroup.setOnGenericMotionListener(wheel)
+        inputGroup = statusGroup(StatusIcon.INPUT, "Input", null, null).apply {
+            visibility = View.VISIBLE
+            setOnClickListener { openInputs() }
+        }
         volPanelText = TextView(this).apply { setTextColor(Color.WHITE); textSize = 28f; gravity = Gravity.CENTER }
         volPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -271,6 +277,7 @@ class MainActivity : Activity() {
         }
         volPanel.setOnGenericMotionListener(wheel)
         val gap = dp(6)
+        pill.addView(inputGroup, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = gap })
         pill.addView(volGroup, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = gap })
         pill.addView(btGroup, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = gap })
         pill.addView(lanGroup, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = gap })
@@ -319,6 +326,11 @@ class MainActivity : Activity() {
         pill.visibility = if (prefs.getBoolean("hide_bar", false)) View.GONE else View.VISIBLE
         if (movingPkg == null) populate()
         handler.post(tick)
+        // The remote's Source button (via SourceKeyService) asks for the Input list.
+        if (intent?.getBooleanExtra("showInputs", false) == true) {
+            intent.removeExtra("showInputs")
+            handler.postDelayed({ openInputs() }, 400)
+        }
     }
 
     override fun onPause() {
@@ -328,6 +340,7 @@ class MainActivity : Activity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
+        setIntent(intent)
         movingPkg = null
         firstTile()?.requestFocus()
         setGridMode(false)
@@ -367,6 +380,10 @@ class MainActivity : Activity() {
                     KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BACK -> endMove()
                 }
             }
+            return true
+        }
+        if (e.keyCode == KeyEvent.KEYCODE_TV_INPUT) {
+            if (e.action == KeyEvent.ACTION_UP) openInputs()
             return true
         }
         if (e.action == KeyEvent.ACTION_DOWN && e.keyCode == KeyEvent.KEYCODE_MENU) {
@@ -498,13 +515,39 @@ class MainActivity : Activity() {
         }
         collect(Intent.CATEGORY_LEANBACK_LAUNCHER)
         collect(Intent.CATEGORY_LAUNCHER)
+        // Pre-installed system apps that have a screen but no launcher icon (TV channel setup, keyboard, voice search…).
+        // Never factory/test menus, setup wizards, system dialogs or Google's internal screens.
+        val skip = listOf("factory", "setupwizard", "tvsetup", "vpndialogs", "com.google.android.gms", "com.android.systemui", "cts")
+        fun score(n: String) = when {
+            n.contains("Main") -> 0
+            n.contains("Settings") && !n.contains("SpellChecker") && !n.contains("Dictionary") -> 1
+            n.contains("Wizard") || n.contains("Dialog") -> 9
+            else -> 2
+        }
+        pm.queryIntentActivities(Intent(Intent.ACTION_MAIN), 0)
+            .filter { ri ->
+                val ai = ri.activityInfo
+                val pkg = ai.packageName
+                (ai.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0 && ai.exported && ai.enabled &&
+                    ai.applicationInfo.enabled && ai.permission == null && pkg != packageName && pkg !in hidden && pkg !in seen &&
+                    skip.none { pkg.contains(it) } && !ai.name.contains("Dialog")
+            }
+            .groupBy { it.activityInfo.packageName }
+            .forEach { (pkg, list) ->
+                val ri = list.minWithOrNull(compareBy({ score(it.activityInfo.name) }, { it.activityInfo.name.length })) ?: return@forEach
+                if (seen.add(pkg)) out.add(AppEntry(ri.loadLabel(pm).toString(), ComponentName(pkg, ri.activityInfo.name), ri))
+            }
         val saved = savedOrder()
         val favs = listOf("youtube", "netflix")
+        val favPkgs = (prefs.getString("favs", "") ?: "").split("|").filter { it.isNotEmpty() }
         out.sortWith(compareBy(
+            { e -> favPkgs.indexOf(e.pkg).let { if (it < 0) Int.MAX_VALUE else it } },
             { e -> saved.indexOf(e.pkg).let { if (it < 0) Int.MAX_VALUE else it } },
             { e -> favs.indexOfFirst { e.label.lowercase().contains(it) }.let { if (it < 0) 99 else it } },
             { it.label.lowercase() }
         ))
+        // Lets Settings > Favorite apps list every app the launcher shows.
+        prefs.edit().putString("applist", out.joinToString("\n") { "${it.pkg}\t${it.label}" }).apply()
         return out
     }
 
@@ -657,6 +700,51 @@ class MainActivity : Activity() {
             }
         }
         return wrapper
+    }
+
+    // TV source picker (HDMI, AV, VGA, antenna). Uses the TV maker's own picker when the firmware has one.
+    // Dropdown under the Input button: pick HDMI 1-3, AV, VGA or antenna and it plays full screen.
+    private fun openInputs() {
+        // The TV's own input menu switches sources exactly like the stock launcher did.
+        val tvMenu = Intent("com.toptech.tv.action.INPUT_ACTIVITY")
+        if (packageManager.resolveActivity(tvMenu, 0) != null) { open(tvMenu); return }
+        val tim = getSystemService(Context.TV_INPUT_SERVICE) as android.media.tv.TvInputManager
+        val inputs = runCatching { tim.tvInputList }.getOrDefault(emptyList()).mapNotNull { info ->
+            val l = runCatching { info.loadLabel(this)?.toString() }.getOrNull()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            Triple(info.id, l, info.type)
+        }
+        // Passthrough inputs (HDMI, AV, VGA) first, then antenna / digital TV tuners.
+        val sorted = inputs.sortedWith(compareBy({ if (it.third == android.media.tv.TvInputInfo.TYPE_TUNER) 1 else 0 }, { it.second.lowercase() }))
+        val labels = ArrayList(sorted.map { it.second })
+        val vendor: Intent? = null
+        if (labels.isEmpty()) { Toast.makeText(this, "This TV has no inputs", Toast.LENGTH_SHORT).show(); return }
+        val popup = android.widget.ListPopupWindow(this)
+        popup.anchorView = inputGroup
+        popup.width = dp(160)
+        popup.isModal = true
+        popup.setBackgroundDrawable(GradientDrawable().apply { cornerRadius = dp(20).toFloat(); setColor(0xF0202433.toInt()); setStroke(1, 0x66FFFFFF) })
+        popup.setAdapter(object : android.widget.ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, labels) {
+            override fun getView(position: Int, convertView: View?, parent: android.view.ViewGroup): View {
+                val name = labels[position]
+                val u = name.uppercase()
+                val kind = when { u.contains("HDMI") -> StatusIcon.HDMI; u.startsWith("AV") -> StatusIcon.AV; u.contains("VGA") -> StatusIcon.VGA; else -> StatusIcon.ANTENNA }
+                return LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(14), dp(5), dp(14), dp(5))
+                    addView(StatusIcon(context, kind), LinearLayout.LayoutParams(dp(22), dp(22)))
+                    addView(TextView(context).apply { text = name; setTextColor(Color.WHITE); textSize = 14f; maxLines = 1; setPadding(dp(10), 0, 0, 0) })
+                }
+            }
+        })
+        popup.setOnItemClickListener { _, _, pos, _ ->
+            popup.dismiss()
+            if (pos < sorted.size) runCatching { startActivity(Intent(this, InputActivity::class.java).putExtra("inputId", sorted[pos].first).putExtra("label", sorted[pos].second)) }
+                .onFailure { android.util.Log.e("TVH", "input open failed", it) }
+            else vendor?.let { open(it) }
+        }
+        popup.show()
+        popup.listView?.requestFocus()
     }
 
     private fun open(i: Intent, opts: Bundle? = null) {

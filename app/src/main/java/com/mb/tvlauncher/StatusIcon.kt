@@ -16,6 +16,11 @@ class StatusIcon(context: Context, private val kind: Int) : View(context) {
         const val BLUETOOTH = 2
         const val GEAR = 3
         const val VOLUME = 4
+        const val INPUT = 5
+        const val HDMI = 6
+        const val AV = 7
+        const val VGA = 8
+        const val ANTENNA = 9
     }
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -83,6 +88,50 @@ class StatusIcon(context: Context, private val kind: Int) : View(context) {
                 for (i in 1..2) {
                     val r = w * 0.17f * i
                     c.drawArc(RectF(w * 0.5f - r, h / 2 - r, w * 0.5f + r, h / 2 + r), -45f, 90f, false, paint)
+                }
+            }
+            INPUT -> {
+                // A screen with an arrow coming in from the left (TV source / input).
+                val r = w * 0.10f
+                c.drawRoundRect(RectF(w * 0.34f, h * 0.16f, w * 0.94f, h * 0.84f), r, r, paint)
+                val cy = h / 2f
+                c.drawLine(w * 0.06f, cy, w * 0.64f, cy, paint)
+                val head = Path()
+                head.moveTo(w * 0.48f, cy - h * 0.16f)
+                head.lineTo(w * 0.64f, cy)
+                head.lineTo(w * 0.48f, cy + h * 0.16f)
+                c.drawPath(head, paint)
+            }
+            HDMI -> {
+                val p = Path()
+                p.moveTo(w * 0.08f, h * 0.28f); p.lineTo(w * 0.92f, h * 0.28f); p.lineTo(w * 0.92f, h * 0.54f)
+                p.lineTo(w * 0.76f, h * 0.76f); p.lineTo(w * 0.24f, h * 0.76f); p.lineTo(w * 0.08f, h * 0.54f); p.close()
+                c.drawPath(p, paint)
+                c.drawLine(w * 0.3f, h * 0.42f, w * 0.7f, h * 0.42f, paint)
+            }
+            AV -> {
+                val old = fill.color
+                val cy = h * 0.5f; val r = w * 0.14f
+                fill.color = Color.rgb(255, 214, 10); c.drawCircle(w * 0.2f, cy, r, fill)
+                fill.color = Color.WHITE; c.drawCircle(w * 0.5f, cy, r, fill)
+                fill.color = Color.rgb(255, 69, 58); c.drawCircle(w * 0.8f, cy, r, fill)
+                fill.color = old
+            }
+            VGA -> {
+                val p = Path()
+                p.moveTo(w * 0.06f, h * 0.26f); p.lineTo(w * 0.94f, h * 0.26f); p.lineTo(w * 0.80f, h * 0.74f); p.lineTo(w * 0.20f, h * 0.74f); p.close()
+                c.drawPath(p, paint)
+                for (i in 0 until 5) c.drawCircle(w * (0.22f + 0.14f * i), h * 0.42f, w * 0.03f, fill)
+                for (i in 0 until 4) c.drawCircle(w * (0.29f + 0.14f * i), h * 0.58f, w * 0.03f, fill)
+            }
+            ANTENNA -> {
+                c.drawLine(w * 0.5f, h * 0.34f, w * 0.26f, h * 0.92f, paint)
+                c.drawLine(w * 0.5f, h * 0.34f, w * 0.74f, h * 0.92f, paint)
+                c.drawLine(w * 0.34f, h * 0.72f, w * 0.66f, h * 0.72f, paint)
+                c.drawCircle(w * 0.5f, h * 0.28f, w * 0.05f, fill)
+                for (i in 1..2) {
+                    val r = w * 0.16f * i
+                    c.drawArc(RectF(w * 0.5f - r, h * 0.28f - r, w * 0.5f + r, h * 0.28f + r), 205f, 130f, false, paint)
                 }
             }
             else -> {

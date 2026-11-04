@@ -9,10 +9,14 @@ android {
         applicationId = "com.mb.appletvlauncher"
         minSdk = 21
         targetSdk = 22
-        versionCode = 7
-        versionName = "1.0.6"
+        versionCode = 19
+        versionName = "1.1.8"
     }
-    buildTypes { release { isMinifyEnabled = false } }
+    // Release = not debuggable, so ART fully compiles it (much smoother on slow TV CPUs).
+    // Signed with the same debug key as before, so it installs over the current build and keeps its settings.
+    buildTypes { release { isMinifyEnabled = false; signingConfig = signingConfigs.getByName("debug") } }
+    // targetSdk 22 is deliberate (see CLAUDE.md); don't let the Play Store target-SDK lint check block release builds.
+    lint { checkReleaseBuilds = false }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
 }
