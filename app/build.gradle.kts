@@ -9,8 +9,8 @@ android {
         applicationId = "com.mb.appletvlauncher"
         minSdk = 21
         targetSdk = 22
-        versionCode = 25
-        versionName = "1.2.4"
+        versionCode = 26
+        versionName = "1.2.5"
     }
     // Release = not debuggable, so ART fully compiles it (much smoother on slow TV CPUs).
     // Signed with the same debug key as before, so it installs over the current build and keeps its settings.

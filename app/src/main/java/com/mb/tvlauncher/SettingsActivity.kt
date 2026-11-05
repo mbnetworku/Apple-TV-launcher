@@ -41,6 +41,7 @@ class SettingsActivity : Activity() {
     private lateinit var list: LinearLayout
     private lateinit var listScroll: ScrollView
     private var resumedBefore = false
+    private lateinit var wallpaper: WallpaperView
     private var page = "main"
     private var lastMainIndex = 0
     private var direct = false
@@ -76,7 +77,8 @@ class SettingsActivity : Activity() {
             View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
 
         val root = FrameLayout(this)
-        root.addView(WallpaperView(this), FrameLayout.LayoutParams(-1, -1))
+        wallpaper = WallpaperView(this)
+        root.addView(wallpaper, FrameLayout.LayoutParams(-1, -1))
         root.addView(View(this).apply { setBackgroundColor(0xC0000000.toInt()) }, FrameLayout.LayoutParams(-1, -1))
 
         val content = LinearLayout(this).apply {
@@ -262,6 +264,8 @@ class SettingsActivity : Activity() {
         row("Clock time zone: $tzName", "Show another time zone in the launcher if the device's clock is off", { setLeft("Clock time zone", tzName, -1, 0xFF0CA678.toInt()) }) {
             lastMainIndex = 11; pickClockZone(home)
         }
+        val wpSummary = wallpaperSummary(home)
+        row("Wallpaper", wpSummary, { setLeft("Wallpaper", wpSummary, -1, 0xFF1971C2.toInt()) }) { lastMainIndex = 12; showWallpaper(0) }
         val items = listOf(
             Triple("Network and Internet", Settings.ACTION_WIRELESS_SETTINGS, 0xFF2B8A3E),
             Triple("Sound", Settings.ACTION_SOUND_SETTINGS, 0xFFC2255C),
@@ -274,7 +278,71 @@ class SettingsActivity : Activity() {
             Triple("All system settings", Settings.ACTION_SETTINGS, 0xFF212529)
         )
         items.forEachIndexed { n, it ->
-            row(it.first, null, { setLeft(it.first, "Open", -1, it.third.toInt()) }) { lastMainIndex = 12 + n; openSystem(it.second) }
+            row(it.first, null, { setLeft(it.first, "Open", -1, it.third.toInt()) }) { lastMainIndex = 13 + n; openSystem(it.second) }
+        }
+        focusAt(focusIndex)
+    }
+
+    // Wallpaper page: keep one picture or rotate them all, how often they change, and the slow zoom.
+    private val intervals = listOf("15 seconds" to 15_000L, "40 seconds" to 40_000L, "2 minutes" to 120_000L, "5 minutes" to 300_000L, "15 minutes" to 900_000L)
+
+    private fun wallpaperLabel(name: String, names: List<String>) = "Wallpaper ${names.indexOf(name) + 1}"
+
+    private fun intervalLabel(ms: Long) = intervals.firstOrNull { it.second == ms }?.first ?: "${ms / 1000} seconds"
+
+    private fun wallpaperSummary(home: android.content.SharedPreferences): String {
+        if (WallpaperView.isOff(this)) return "Off (plain background)"
+        val names = WallpaperView.wallpaperNames(this)
+        if (names.isEmpty()) return "Built-in mountain scene"
+        val fixed = home.getString(WallpaperView.PREF_FIXED, null)?.takeIf { it in names }
+        return if (fixed != null) wallpaperLabel(fixed, names)
+        else "Rotate all ${names.size}, every " + intervalLabel(home.getLong(WallpaperView.PREF_INTERVAL, WallpaperView.DEFAULT_INTERVAL))
+    }
+
+    private fun showWallpaper(focusIndex: Int) {
+        startPage("wallpaper")
+        val home = getSharedPreferences("home", Context.MODE_PRIVATE)
+        val names = WallpaperView.wallpaperNames(this)
+        val color = 0xFF1971C2.toInt()
+        val off = WallpaperView.isOff(this)
+        val fixed = home.getString(WallpaperView.PREF_FIXED, null)?.takeIf { it in names }
+        val allLabel = if (names.isEmpty()) "Built-in mountain scene" else "Rotate all ${names.size}"
+        val picture = if (off) "Off" else fixed?.let { wallpaperLabel(it, names) } ?: allLabel
+        row("Picture: $picture", "Turn the wallpaper off, keep one, or show them all in turn", { setLeft("Picture", picture, -1, color) }) {
+            // 0 = Off, 1 = Rotate all (or the built-in scene), 2.. = one wallpaper
+            val choices = listOf("Off (plain background, lightest)", allLabel) + names.map { wallpaperLabel(it, names) }
+            val checked = if (off) 0 else if (fixed == null) 1 else names.indexOf(fixed) + 2
+            AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle("Wallpaper")
+                .setSingleChoiceItems(choices.toTypedArray(), checked) { d, w ->
+                    home.edit().apply {
+                        when (w) {
+                            0 -> putString(WallpaperView.PREF_FIXED, WallpaperView.FIXED_OFF)
+                            1 -> remove(WallpaperView.PREF_FIXED)
+                            else -> putString(WallpaperView.PREF_FIXED, names[w - 2])
+                        }
+                    }.apply()
+                    wallpaper.reload()
+                    d.dismiss(); showWallpaper(0)
+                }.show()
+        }
+        if (off || names.isEmpty()) { focusAt(focusIndex); return }
+        val ms = home.getLong(WallpaperView.PREF_INTERVAL, WallpaperView.DEFAULT_INTERVAL)
+        val every = if (fixed != null) "Only used when rotating" else intervalLabel(ms)
+        row("Change every: " + intervalLabel(ms), every, { setLeft("Change every", intervalLabel(ms), -1, color) }) {
+            AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle("Change wallpaper every")
+                .setSingleChoiceItems(intervals.map { it.first }.toTypedArray(), intervals.indexOfFirst { it.second == ms }) { d, w ->
+                    home.edit().putLong(WallpaperView.PREF_INTERVAL, intervals[w].second).apply()
+                    wallpaper.reload()
+                    d.dismiss(); showWallpaper(1)
+                }.show()
+        }
+        val zoom = home.getBoolean(WallpaperView.PREF_ZOOM, true)
+        row("Motion: " + if (zoom) "On" else "Off", "Slow zoom on the wallpaper (Off is lighter on slow boxes)", { setLeft("Motion", if (zoom) "On" else "Off", -1, color) }) {
+            home.edit().putBoolean(WallpaperView.PREF_ZOOM, !zoom).apply()
+            wallpaper.reload()
+            showWallpaper(2)
         }
         focusAt(focusIndex)
     }

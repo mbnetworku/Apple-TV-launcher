@@ -15,7 +15,8 @@ All releases, with release notes, are on the **[Releases page](https://github.co
 
 | Version | Date | What's new | Download |
 |---|---|---|---|
-| **1.2.4** (latest) | 2026-11-05 | Clock time zone option in Settings, cleaner app grid | [AppleTVLauncher-1.2.4.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.2.4/AppleTVLauncher-1.2.4.apk) |
+| **1.2.5** (latest) | 2026-11-05 | Adds the Wallpaper settings (off, one picture or rotate, interval, motion) to 1.2.4 | [AppleTVLauncher-1.2.5.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.2.5/AppleTVLauncher-1.2.5.apk) |
+| 1.2.4 | 2026-11-05 | Clock time zone option in Settings, cleaner app grid | [AppleTVLauncher-1.2.4.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.2.4/AppleTVLauncher-1.2.4.apk) |
 | 1.2.2 | 2026-11-05 | Live Storage page, Network page, tick sound, bug fixes | [AppleTVLauncher-1.2.2.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.2.2/AppleTVLauncher-1.2.2.apk) |
 | 1.1.9 | 2026-11-05 | Input button only on TVs that have inputs, smaller Settings rows | [AppleTVLauncher-1.1.9.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.1.9/AppleTVLauncher-1.1.9.apk) |
 | 1.1.8 | 2026-11-04 | Input button and Source key, Storage page, icon size, favorite apps, start-up input | [AppleTVLauncher-1.1.8.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.1.8/AppleTVLauncher-1.1.8.apk) |
@@ -44,6 +45,7 @@ Full step-by-step commands, the debloat list, undo and troubleshooting: [SETUP-N
 - Frosted dock with a row of rounded app tiles. The selected tile pops up with a small bounce and a white outline.
 - Press Down for the "All apps" view: the first row rises, the other rows come up, the background dims and the app name appears under the selected tile. How far it rises depends on how many apps you have.
 - Rotating wallpapers with a slow zoom and cross-fade (`app/src/main/assets/wallpapers`). With no images the launcher draws its own mountain scene.
+- Settings → Wallpaper: turn the wallpaper off (plain dark background, lightest on slow boxes), keep one picture, or rotate them all; choose how often it changes (15 seconds to 15 minutes) and switch the slow zoom on or off.
 - Fixed top bar: Bluetooth (when on), LAN (when the cable is connected), Wi-Fi network name, a clock that opens Date and time settings, a volume button and a settings button. A large clock and date sit on the left (12 or 24 hour, chosen in Settings). Each item opens the matching Settings page.
 - Press and hold an app with the mouse and drag it to a new place; release without moving (or long-press OK, or press Menu) for Move, Hide, Uninstall (or App info for built-in system apps). A "Hidden apps" tile brings hidden apps back.
 - Apple TV–style Settings: Wi-Fi (scan, connect with password), Bluetooth (on/off, scan, pair, forget), Speed boost (free memory, animation speed) and shortcuts to the system Sound, Display, Apps, Date, Language, Accessibility and About screens.
