@@ -40,6 +40,7 @@ class SettingsActivity : Activity() {
     private lateinit var leftSub: TextView
     private lateinit var list: LinearLayout
     private lateinit var listScroll: ScrollView
+    private var resumedBefore = false
     private var page = "main"
     private var lastMainIndex = 0
     private var direct = false
@@ -54,7 +55,7 @@ class SettingsActivity : Activity() {
         override fun onReceive(c: Context, i: Intent) {
             if (i.action == BluetoothDevice.ACTION_FOUND) {
                 val d = i.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
-                if (d != null && !d.name.isNullOrBlank()) found[d.address] = d
+                if (d != null && !runCatching { d.name }.getOrNull().isNullOrBlank()) found[d.address] = d
             }
             handler.removeCallbacks(refresh)
             handler.postDelayed(refresh, 600)
@@ -120,9 +121,15 @@ class SettingsActivity : Activity() {
             addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
         }
         registerReceiver(receiver, f)
+        // Numbers on the main list (free storage) and the Storage page must never be out of date.
+        if (page == "main" && resumedBefore) showMain(currentFocus?.let { list.indexOfChild(it) }?.takeIf { it >= 0 } ?: lastMainIndex)
+        resumedBefore = true
+        handler.removeCallbacks(storageLive)
+        handler.postDelayed(storageLive, 4000)
     }
 
     override fun onPause() {
+        handler.removeCallbacks(storageLive)
         runCatching { unregisterReceiver(receiver) }
         runCatching { bt?.cancelDiscovery() }
         super.onPause()
@@ -170,9 +177,9 @@ class SettingsActivity : Activity() {
             t.setTextColor(if (has) 0xFF111111.toInt() else Color.WHITE)
             s?.setTextColor(if (has) 0xFF555555.toInt() else 0xB3FFFFFF.toInt())
             v.animate().scaleX(if (has) 1.03f else 1f).scaleY(if (has) 1.03f else 1f).setDuration(140).start()
-            if (has) onFocus?.invoke()
+            if (has) { Tick.play(this, 0); onFocus?.invoke() }
         }
-        box.setOnClickListener { onClick() }
+        box.setOnClickListener { Tick.play(this, 1); onClick() }
         list.addView(box, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
         return box
     }
@@ -194,8 +201,16 @@ class SettingsActivity : Activity() {
 
     private fun currentSsid(): String {
         if (!wm.isWifiEnabled) return "Wi-Fi is off"
-        val s = wm.connectionInfo?.ssid?.removeSurrounding("\"").orEmpty()
-        return if (s.isBlank() || s == "<unknown ssid>") "Not connected" else "Connected to $s"
+        val s = realSsid()
+        return if (s.isBlank()) "Not connected" else "Connected to $s"
+    }
+
+    // Some firmware answers "0x" or "<unknown ssid>" when Wi-Fi is on but not connected.
+    private fun realSsid(): String {
+        val info = runCatching { wm.connectionInfo }.getOrNull() ?: return ""
+        val s = info.ssid?.removeSurrounding("\"").orEmpty()
+        if (s.isBlank() || s == "<unknown ssid>" || s == "0x" || info.networkId == -1) return ""
+        return s
     }
 
     private fun showMain(focusIndex: Int) {
@@ -233,6 +248,15 @@ class SettingsActivity : Activity() {
         row("Clock: " + if (h24) "24-hour" else "12-hour", "Press OK to switch", { setLeft("Clock", if (h24) "24-hour" else "12-hour", -1, 0xFF5F3DC4.toInt()) }) {
             home.edit().putBoolean("clock24", !h24).apply(); lastMainIndex = 8; showMain(8)
         }
+        lastFree = dataSpace().free
+        val net = networks()
+        val netSummary = if (net.isEmpty()) "Not connected" else net.joinToString("  ·  ") { "${it.kind} ${it.ip ?: ""}".trim() }
+        row("Network", netSummary, { setLeft("Network", netSummary, StatusIcon.LAN, 0xFF1C7ED6.toInt()) }) { lastMainIndex = 9; showNetwork(0) }
+        val tickOn = Tick.enabled(this)
+        row("Sound effects: " + if (tickOn) "On" else "Off", "A soft tick when you move with the arrows or press OK", { setLeft("Sound effects", if (tickOn) "On" else "Off", -1, 0xFFE64980.toInt()) }) {
+            home.edit().putBoolean("tick_sound", !tickOn).apply(); lastMainIndex = 10; showMain(10)
+            if (!tickOn) Tick.play(this, 1)
+        }
         val items = listOf(
             Triple("Network and Internet", Settings.ACTION_WIRELESS_SETTINGS, 0xFF2B8A3E),
             Triple("Sound", Settings.ACTION_SOUND_SETTINGS, 0xFFC2255C),
@@ -245,7 +269,7 @@ class SettingsActivity : Activity() {
             Triple("All system settings", Settings.ACTION_SETTINGS, 0xFF212529)
         )
         items.forEachIndexed { n, it ->
-            row(it.first, null, { setLeft(it.first, "Open", -1, it.third.toInt()) }) { lastMainIndex = 9 + n; openSystem(it.second) }
+            row(it.first, null, { setLeft(it.first, "Open", -1, it.third.toInt()) }) { lastMainIndex = 11 + n; openSystem(it.second) }
         }
         focusAt(focusIndex)
     }
@@ -433,8 +457,14 @@ class SettingsActivity : Activity() {
 
     private fun storageSummary(): String { val d = dataSpace(); return "${size(d.free)} free of ${size(d.total)}" }
 
-    private fun folderBytes(f: java.io.File): Long =
-        if (f.isFile) f.length() else (f.listFiles()?.sumOf { folderBytes(it) } ?: 0L)
+    // Adds up a folder. Skips links (they can loop back on themselves) and stops very deep trees.
+    private fun folderBytes(f: java.io.File, depth: Int = 0): Long = runCatching {
+        when {
+            f.isFile -> f.length()
+            depth > 12 || f.canonicalPath != f.absolutePath -> 0L
+            else -> f.listFiles()?.sumOf { folderBytes(it, depth + 1) } ?: 0L
+        }
+    }.getOrDefault(0L)
 
     // Downloads, pictures, videos and other files in shared storage (app folders under Android/ count as app data).
     private fun measureUserFiles(): Long =
@@ -469,13 +499,90 @@ class SettingsActivity : Activity() {
         chipBytes()?.let { c -> row("Whole storage chip: ${size(c)}", "Space for apps and files + Android system + firmware", left) { } }
         row("Open the TV's storage settings", "Clear an app's cache or data", left) { openSystem(Settings.ACTION_INTERNAL_STORAGE_SETTINGS) }
         focusAt(focusIndex)
+        lastFree = d.free
         if (measure) Thread {
             val b = runCatching { measureUserFiles() }.getOrNull()
             handler.post {
-                userFiles = b
-                if (page == "storage" && b != null) showStorage(currentFocus?.let { list.indexOfChild(it) }?.takeIf { it >= 0 } ?: 0, measure = false)
+                val changed = b != null && b != userFiles
+                if (b != null) userFiles = b
+                if (page == "storage" && changed) showStorage(currentFocus?.let { list.indexOfChild(it) }?.takeIf { it >= 0 } ?: 0, measure = false)
             }
         }.start()
+    }
+
+    // ---- Network: connection type, IPv4 address, gateway, subnet mask and DNS of every connected network ----
+
+    private class Net(val kind: String, val ip: String?, val mask: String?, val gateway: String?, val dns: List<String>)
+
+    private fun maskOf(prefix: Int): String {
+        val m = if (prefix <= 0) 0L else (0xFFFFFFFFL shl (32 - prefix.coerceAtMost(32))) and 0xFFFFFFFFL
+        return "${(m shr 24) and 255}.${(m shr 16) and 255}.${(m shr 8) and 255}.${m and 255}"
+    }
+
+    @Suppress("DEPRECATION")
+    private fun networks(): List<Net> = runCatching {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val out = ArrayList<Net>()
+        for (n in cm.allNetworks) {
+            val info = cm.getNetworkInfo(n)?.takeIf { it.isConnected } ?: continue
+            val kind = when (info.type) {
+                android.net.ConnectivityManager.TYPE_ETHERNET -> "LAN"
+                android.net.ConnectivityManager.TYPE_WIFI -> {
+                    val s = realSsid()
+                    if (s.isBlank()) "Wi-Fi" else "Wi-Fi $s"
+                }
+                else -> continue
+            }
+            val lp = cm.getLinkProperties(n) ?: continue
+            val addr = lp.linkAddresses.firstOrNull { it.address is java.net.Inet4Address }
+            val gw = lp.routes.firstOrNull { it.isDefaultRoute && it.gateway is java.net.Inet4Address }?.gateway?.hostAddress
+            out.add(Net(kind, addr?.address?.hostAddress, addr?.let { maskOf(it.prefixLength) }, gw,
+                lp.dnsServers.filterIsInstance<java.net.Inet4Address>().mapNotNull { it.hostAddress }))
+        }
+        out.sortedBy { if (it.kind == "LAN") 0 else 1 }
+    }.getOrDefault(emptyList())
+
+    private var lastNetSig = ""
+
+    private fun showNetwork(focusIndex: Int) {
+        startPage("network")
+        val nets = networks()
+        lastNetSig = nets.joinToString("|") { "${it.kind}${it.ip}${it.gateway}" }
+        val left = { setLeft("Network", if (nets.isEmpty()) "Not connected" else nets.first().kind, StatusIcon.LAN, 0xFF1C7ED6.toInt()) }
+        if (nets.isEmpty()) row("Not connected", "No LAN cable or Wi-Fi connection found", left) { }
+        for (n in nets) {
+            row("${n.kind} (connected)", "Connection type", left) { }
+            row("IPv4 address: ${n.ip ?: "none"}", "This device's address on the network", left) { }
+            row("Gateway: ${n.gateway ?: "none"}", "The router's IPv4 address", left) { }
+            n.mask?.let { row("Subnet mask: $it", null, left) { } }
+            if (n.dns.isNotEmpty()) row("DNS: ${n.dns.joinToString(", ")}", "Name servers", left) { }
+        }
+        row("Open the TV's network settings", "Change Wi-Fi or LAN", left) { openSystem(Settings.ACTION_WIRELESS_SETTINGS) }
+        focusAt(focusIndex)
+    }
+
+    // Keeps the Storage and Network pages (and the Storage line on the main list) live: every few seconds it re-reads
+    // the real numbers and redraws only if something changed.
+    private var lastFree = -1L
+    private var storageTicks = 0
+    private val storageLive = object : Runnable {
+        override fun run() {
+            val idx0 = currentFocus?.let { list.indexOfChild(it) }?.takeIf { it >= 0 } ?: 0
+            if (page == "main" && dataSpace().free != lastFree) showMain(idx0)
+            if (page == "network") {
+                val sig = networks().joinToString("|") { "${it.kind}${it.ip}${it.gateway}" }
+                if (sig != lastNetSig) showNetwork(idx0)
+            }
+            if (page == "storage") {
+                val idx = currentFocus?.let { list.indexOfChild(it) }?.takeIf { it >= 0 } ?: 0
+                if (dataSpace().free != lastFree) showStorage(idx, measure = true)
+                else if (++storageTicks % 5 == 0) Thread { // walking every file is heavy: only every ~20 s unless free space changed
+                    val b = runCatching { measureUserFiles() }.getOrNull()
+                    handler.post { if (page == "storage" && b != null && b != userFiles) { userFiles = b; showStorage(idx, measure = false) } }
+                }.start()
+            }
+            handler.postDelayed(this, 4000)
+        }
     }
 
     private fun freeMb(): Long {

@@ -139,10 +139,12 @@ class MainActivity : Activity() {
             isClickable = true
             hoverFocus(this)
             setOnFocusChangeListener { v, has ->
+                if (has) Tick.play(this@MainActivity, 0)
                 (v.background as GradientDrawable).setColor(if (has) 0x55FFFFFF else Color.TRANSPARENT)
                 v.animate().scaleX(if (has) 1.1f else 1f).scaleY(if (has) 1.1f else 1f).setDuration(140).start()
             }
             setOnClickListener {
+                Tick.play(this@MainActivity, 1)
                 open(Intent(this@MainActivity, SettingsActivity::class.java).putExtra("page", target ?: "main"))
             }
         }
@@ -323,6 +325,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        Tick.quiet(900) // the first icon is focused by itself when Home appears: no tick for that
         pill.visibility = if (prefs.getBoolean("hide_bar", false)) View.GONE else View.VISIBLE
         // The Input button is only shown on a TV that actually has inputs (HDMI, AV, antenna...).
         inputGroup.visibility = if (hasInputs()) View.VISIBLE else View.GONE
@@ -519,7 +522,7 @@ class MainActivity : Activity() {
         collect(Intent.CATEGORY_LAUNCHER)
         // Pre-installed system apps that have a screen but no launcher icon (TV channel setup, keyboard, voice search…).
         // Never factory/test menus, setup wizards, system dialogs or Google's internal screens.
-        val skip = listOf("factory", "setupwizard", "tvsetup", "vpndialogs", "com.google.android.gms", "com.android.systemui", "cts")
+        val skip = listOf("factory", "setupwizard", "tvsetup", "provision", "vpndialogs", "iperf", "com.google.android.gms", "com.android.systemui", "cts")
         fun score(n: String) = when {
             n.contains("Main") -> 0
             n.contains("Settings") && !n.contains("SpellChecker") && !n.contains("Dictionary") -> 1
@@ -632,18 +635,21 @@ class MainActivity : Activity() {
             addView(label, FrameLayout.LayoutParams(-1, -2))
         }
         card.setOnFocusChangeListener { v, has ->
-            if (has) setGridMode(rowIndex >= 1)
+            if (has) { Tick.play(this, 0); setGridMode(rowIndex >= 1) }
             label.animate().alpha(if (has && rowIndex >= 1) 1f else 0f).setDuration(200).start()
             val s = if (has) 1.12f else 1f
             v.animate().cancel()
+            // Explicit type: Android 5.0 (API 21) does not know BaseInterpolator as a TimeInterpolator.
+            val ip: android.animation.TimeInterpolator = if (has) OvershootInterpolator(2.2f) else DecelerateInterpolator()
             v.animate().scaleX(s).scaleY(s).translationY(if (has) -dp(8).toFloat() else 0f)
-                .setInterpolator(if (has) OvershootInterpolator(2.2f) else DecelerateInterpolator())
+                .setInterpolator(ip)
                 .setDuration(if (has) 260 else 160).start()
             (v as FrameLayout).foreground = if (has)
                 GradientDrawable().apply { cornerRadius = radius; setStroke(dp(3), Color.WHITE); setColor(Color.TRANSPARENT) }
             else ColorDrawable(Color.TRANSPARENT)
         }
         card.setOnClickListener { v ->
+            Tick.play(this, 1)
             when (app.kind) {
                 2 -> showHidden()
                 else -> {
