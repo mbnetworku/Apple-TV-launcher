@@ -99,11 +99,14 @@ class MainActivity : Activity() {
         override fun run() {
             val now = Date()
             val h24 = prefs.getBoolean("clock24", false)
-            clock.text = SimpleDateFormat(if (h24) "HH:mm" else "h:mm a", Locale.US).format(now)
-            bigClock.text = SimpleDateFormat(if (h24) "HH:mm" else "h:mm", Locale.US).format(now)
-            bigAmPm.text = if (h24) "" else SimpleDateFormat("a", Locale.US).format(now)
+            // Settings > Clock time zone shows another zone in the launcher when the device's own zone is wrong or unset.
+            val zone = prefs.getString("clock_tz", null)?.let { java.util.TimeZone.getTimeZone(it) }
+            fun fmt(p: String, l: Locale) = SimpleDateFormat(p, l).also { if (zone != null) it.timeZone = zone }
+            clock.text = fmt(if (h24) "HH:mm" else "h:mm a", Locale.US).format(now)
+            bigClock.text = fmt(if (h24) "HH:mm" else "h:mm", Locale.US).format(now)
+            bigAmPm.text = if (h24) "" else fmt("a", Locale.US).format(now)
             volText.text = "${volPercent()}%"
-            bigDate.text = SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(now)
+            bigDate.text = fmt("EEEE, d MMMM", Locale.getDefault()).format(now)
             updateStatus()
             handler.postDelayed(this, 5_000)
         }
@@ -529,6 +532,8 @@ class MainActivity : Activity() {
             n.contains("Wizard") || n.contains("Dialog") -> 9
             else -> 2
         }
+        // Extras must not repeat an app that is already shown (several "Settings" tiles) and must have a real name.
+        val usedLabels = out.map { it.label.trim().lowercase() }.toHashSet()
         pm.queryIntentActivities(Intent(Intent.ACTION_MAIN), 0)
             .filter { ri ->
                 val ai = ri.activityInfo
@@ -540,7 +545,10 @@ class MainActivity : Activity() {
             .groupBy { it.activityInfo.packageName }
             .forEach { (pkg, list) ->
                 val ri = list.minWithOrNull(compareBy({ score(it.activityInfo.name) }, { it.activityInfo.name.length })) ?: return@forEach
-                if (seen.add(pkg)) out.add(AppEntry(ri.loadLabel(pm).toString(), ComponentName(pkg, ri.activityInfo.name), ri))
+                val label = ri.loadLabel(pm).toString().trim()
+                // Skip nameless or raw-package-name entries (e.g. "com.droidlogic.promptuse") and labels already in the grid.
+                if (label.isEmpty() || label.startsWith("com.") || label.startsWith("org.") || !usedLabels.add(label.lowercase())) return@forEach
+                if (seen.add(pkg)) out.add(AppEntry(label, ComponentName(pkg, ri.activityInfo.name), ri))
             }
         val saved = savedOrder()
         val favs = listOf("youtube", "netflix")

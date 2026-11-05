@@ -257,6 +257,11 @@ class SettingsActivity : Activity() {
             home.edit().putBoolean("tick_sound", !tickOn).apply(); lastMainIndex = 10; showMain(10)
             if (!tickOn) Tick.play(this, 1)
         }
+        val tzId = home.getString("clock_tz", null)
+        val tzName = if (tzId == null) "System (" + java.util.TimeZone.getDefault().getDisplayName(false, java.util.TimeZone.SHORT) + ")" else zoneLabel(tzId)
+        row("Clock time zone: $tzName", "Show another time zone in the launcher if the device's clock is off", { setLeft("Clock time zone", tzName, -1, 0xFF0CA678.toInt()) }) {
+            lastMainIndex = 11; pickClockZone(home)
+        }
         val items = listOf(
             Triple("Network and Internet", Settings.ACTION_WIRELESS_SETTINGS, 0xFF2B8A3E),
             Triple("Sound", Settings.ACTION_SOUND_SETTINGS, 0xFFC2255C),
@@ -269,9 +274,35 @@ class SettingsActivity : Activity() {
             Triple("All system settings", Settings.ACTION_SETTINGS, 0xFF212529)
         )
         items.forEachIndexed { n, it ->
-            row(it.first, null, { setLeft(it.first, "Open", -1, it.third.toInt()) }) { lastMainIndex = 11 + n; openSystem(it.second) }
+            row(it.first, null, { setLeft(it.first, "Open", -1, it.third.toInt()) }) { lastMainIndex = 12 + n; openSystem(it.second) }
         }
         focusAt(focusIndex)
+    }
+
+    // Time zones the launcher clock can show (does not change the device's own setting).
+    private val zones: List<Pair<String, String>> = listOf(
+        "GMT-12:00" to "UTC-12", "GMT-11:00" to "UTC-11", "GMT-10:00" to "UTC-10 (Hawaii)", "GMT-09:00" to "UTC-9 (Alaska)",
+        "GMT-08:00" to "UTC-8 (Los Angeles)", "GMT-07:00" to "UTC-7 (Denver)", "GMT-06:00" to "UTC-6 (Chicago, Mexico City)",
+        "GMT-05:00" to "UTC-5 (New York, Bogota)", "GMT-04:00" to "UTC-4 (Caracas, Halifax)", "GMT-03:00" to "UTC-3 (Sao Paulo, Buenos Aires)",
+        "GMT-02:00" to "UTC-2", "GMT-01:00" to "UTC-1 (Azores)", "GMT+00:00" to "UTC+0 (London, Lisbon, Accra)",
+        "GMT+01:00" to "UTC+1 (Paris, Berlin, Lagos)", "GMT+02:00" to "UTC+2 (Cairo, Athens, Johannesburg)",
+        "GMT+03:00" to "UTC+3 (Riyadh, Baghdad, Kuwait, Istanbul, Moscow, Nairobi, Addis Ababa)", "GMT+03:30" to "UTC+3:30 (Tehran)",
+        "GMT+04:00" to "UTC+4 (Dubai, Baku)", "GMT+04:30" to "UTC+4:30 (Kabul)", "GMT+05:00" to "UTC+5 (Karachi, Tashkent)",
+        "GMT+05:30" to "UTC+5:30 (India, Sri Lanka)", "GMT+05:45" to "UTC+5:45 (Nepal)", "GMT+06:00" to "UTC+6 (Dhaka, Almaty)",
+        "GMT+07:00" to "UTC+7 (Bangkok, Jakarta)", "GMT+08:00" to "UTC+8 (Beijing, Singapore, Perth)", "GMT+09:00" to "UTC+9 (Tokyo, Seoul)",
+        "GMT+09:30" to "UTC+9:30 (Adelaide)", "GMT+10:00" to "UTC+10 (Sydney, Brisbane)", "GMT+12:00" to "UTC+12 (Auckland, Fiji)"
+    )
+
+    private fun zoneLabel(id: String) = zones.firstOrNull { it.first == id }?.second ?: id
+
+    private fun pickClockZone(home: android.content.SharedPreferences) {
+        val names = (listOf("System default") + zones.map { it.second }).toTypedArray()
+        AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+            .setTitle("Clock time zone")
+            .setItems(names) { _, w ->
+                if (w == 0) home.edit().remove("clock_tz").apply() else home.edit().putString("clock_tz", zones[w - 1].first).apply()
+                showMain(11)
+            }.show()
     }
 
     // Pick the input (HDMI 1-3, AV, VGA, antenna) that opens by itself a few seconds after the TV starts.
