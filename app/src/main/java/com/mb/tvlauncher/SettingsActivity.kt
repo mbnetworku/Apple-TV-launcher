@@ -148,8 +148,8 @@ class SettingsActivity : Activity() {
     private fun row(title: String, sub: String? = null, onFocus: (() -> Unit)? = null, onClick: () -> Unit): View {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(14), dp(24), dp(14))
-            background = GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(0x33FFFFFF) }
+            setPadding(dp(18), dp(8), dp(18), dp(8))
+            background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(0x33FFFFFF) }
             isFocusable = true
             isClickable = true
             isFocusableInTouchMode = true
@@ -158,11 +158,11 @@ class SettingsActivity : Activity() {
                 false
             }
         }
-        val t = TextView(this).apply { text = title; setTextColor(Color.WHITE); textSize = 22f; maxLines = 1 }
+        val t = TextView(this).apply { text = title; setTextColor(Color.WHITE); textSize = 17f; maxLines = 1 }
         box.addView(t)
         var s: TextView? = null
         if (!sub.isNullOrBlank()) {
-            s = TextView(this).apply { text = sub; setTextColor(0xB3FFFFFF.toInt()); textSize = 15f; maxLines = 1 }
+            s = TextView(this).apply { text = sub; setTextColor(0xB3FFFFFF.toInt()); textSize = 12f; maxLines = 1 }
             box.addView(s)
         }
         box.setOnFocusChangeListener { v, has ->
@@ -173,7 +173,7 @@ class SettingsActivity : Activity() {
             if (has) onFocus?.invoke()
         }
         box.setOnClickListener { onClick() }
-        list.addView(box, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+        list.addView(box, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
         return box
     }
 

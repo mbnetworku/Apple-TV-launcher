@@ -324,6 +324,8 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         pill.visibility = if (prefs.getBoolean("hide_bar", false)) View.GONE else View.VISIBLE
+        // The Input button is only shown on a TV that actually has inputs (HDMI, AV, antenna...).
+        inputGroup.visibility = if (hasInputs()) View.VISIBLE else View.GONE
         if (movingPkg == null) populate()
         handler.post(tick)
         // The remote's Source button (via SourceKeyService) asks for the Input list.
@@ -700,6 +702,14 @@ class MainActivity : Activity() {
             }
         }
         return wrapper
+    }
+
+    private fun hasInputs(): Boolean {
+        // A TV with its own input menu, or any TV input registered with Android (HDMI, AV, antenna...).
+        if (packageManager.resolveActivity(Intent("com.toptech.tv.action.INPUT_ACTIVITY"), 0) != null) return true
+        return runCatching {
+            (getSystemService(Context.TV_INPUT_SERVICE) as android.media.tv.TvInputManager).tvInputList.isNotEmpty()
+        }.getOrDefault(false)
     }
 
     // TV source picker (HDMI, AV, VGA, antenna). Uses the TV maker's own picker when the firmware has one.
