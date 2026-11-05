@@ -99,11 +99,14 @@ class MainActivity : Activity() {
         override fun run() {
             val now = Date()
             val h24 = prefs.getBoolean("clock24", false)
-            clock.text = SimpleDateFormat(if (h24) "HH:mm" else "h:mm a", Locale.US).format(now)
-            bigClock.text = SimpleDateFormat(if (h24) "HH:mm" else "h:mm", Locale.US).format(now)
-            bigAmPm.text = if (h24) "" else SimpleDateFormat("a", Locale.US).format(now)
+            // Settings > Clock time zone shows another zone in the launcher when the device's own zone is wrong or unset.
+            val zone = prefs.getString("clock_tz", null)?.let { java.util.TimeZone.getTimeZone(it) }
+            fun fmt(p: String, l: Locale) = SimpleDateFormat(p, l).also { if (zone != null) it.timeZone = zone }
+            clock.text = fmt(if (h24) "HH:mm" else "h:mm a", Locale.US).format(now)
+            bigClock.text = fmt(if (h24) "HH:mm" else "h:mm", Locale.US).format(now)
+            bigAmPm.text = if (h24) "" else fmt("a", Locale.US).format(now)
             volText.text = "${volPercent()}%"
-            bigDate.text = SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(now)
+            bigDate.text = fmt("EEEE, d MMMM", Locale.getDefault()).format(now)
             updateStatus()
             handler.postDelayed(this, 5_000)
         }
@@ -139,10 +142,12 @@ class MainActivity : Activity() {
             isClickable = true
             hoverFocus(this)
             setOnFocusChangeListener { v, has ->
+                if (has) Tick.play(this@MainActivity, 0)
                 (v.background as GradientDrawable).setColor(if (has) 0x55FFFFFF else Color.TRANSPARENT)
                 v.animate().scaleX(if (has) 1.1f else 1f).scaleY(if (has) 1.1f else 1f).setDuration(140).start()
             }
             setOnClickListener {
+                Tick.play(this@MainActivity, 1)
                 open(Intent(this@MainActivity, SettingsActivity::class.java).putExtra("page", target ?: "main"))
             }
         }
@@ -323,7 +328,10 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        Tick.quiet(900) // the first icon is focused by itself when Home appears: no tick for that
         pill.visibility = if (prefs.getBoolean("hide_bar", false)) View.GONE else View.VISIBLE
+        // The Input button is only shown on a TV that actually has inputs (HDMI, AV, antenna...).
+        inputGroup.visibility = if (hasInputs()) View.VISIBLE else View.GONE
         if (movingPkg == null) populate()
         handler.post(tick)
         // The remote's Source button (via SourceKeyService) asks for the Input list.
@@ -517,13 +525,15 @@ class MainActivity : Activity() {
         collect(Intent.CATEGORY_LAUNCHER)
         // Pre-installed system apps that have a screen but no launcher icon (TV channel setup, keyboard, voice search…).
         // Never factory/test menus, setup wizards, system dialogs or Google's internal screens.
-        val skip = listOf("factory", "setupwizard", "tvsetup", "vpndialogs", "com.google.android.gms", "com.android.systemui", "cts")
+        val skip = listOf("factory", "setupwizard", "tvsetup", "provision", "vpndialogs", "iperf", "com.google.android.gms", "com.android.systemui", "cts")
         fun score(n: String) = when {
             n.contains("Main") -> 0
             n.contains("Settings") && !n.contains("SpellChecker") && !n.contains("Dictionary") -> 1
             n.contains("Wizard") || n.contains("Dialog") -> 9
             else -> 2
         }
+        // Extras must not repeat an app that is already shown (several "Settings" tiles) and must have a real name.
+        val usedLabels = out.map { it.label.trim().lowercase() }.toHashSet()
         pm.queryIntentActivities(Intent(Intent.ACTION_MAIN), 0)
             .filter { ri ->
                 val ai = ri.activityInfo
@@ -535,7 +545,10 @@ class MainActivity : Activity() {
             .groupBy { it.activityInfo.packageName }
             .forEach { (pkg, list) ->
                 val ri = list.minWithOrNull(compareBy({ score(it.activityInfo.name) }, { it.activityInfo.name.length })) ?: return@forEach
-                if (seen.add(pkg)) out.add(AppEntry(ri.loadLabel(pm).toString(), ComponentName(pkg, ri.activityInfo.name), ri))
+                val label = ri.loadLabel(pm).toString().trim()
+                // Skip nameless or raw-package-name entries (e.g. "com.droidlogic.promptuse") and labels already in the grid.
+                if (label.isEmpty() || label.startsWith("com.") || label.startsWith("org.") || !usedLabels.add(label.lowercase())) return@forEach
+                if (seen.add(pkg)) out.add(AppEntry(label, ComponentName(pkg, ri.activityInfo.name), ri))
             }
         val saved = savedOrder()
         val favs = listOf("youtube", "netflix")
@@ -630,18 +643,21 @@ class MainActivity : Activity() {
             addView(label, FrameLayout.LayoutParams(-1, -2))
         }
         card.setOnFocusChangeListener { v, has ->
-            if (has) setGridMode(rowIndex >= 1)
+            if (has) { Tick.play(this, 0); setGridMode(rowIndex >= 1) }
             label.animate().alpha(if (has && rowIndex >= 1) 1f else 0f).setDuration(200).start()
             val s = if (has) 1.12f else 1f
             v.animate().cancel()
+            // Explicit type: Android 5.0 (API 21) does not know BaseInterpolator as a TimeInterpolator.
+            val ip: android.animation.TimeInterpolator = if (has) OvershootInterpolator(2.2f) else DecelerateInterpolator()
             v.animate().scaleX(s).scaleY(s).translationY(if (has) -dp(8).toFloat() else 0f)
-                .setInterpolator(if (has) OvershootInterpolator(2.2f) else DecelerateInterpolator())
+                .setInterpolator(ip)
                 .setDuration(if (has) 260 else 160).start()
             (v as FrameLayout).foreground = if (has)
                 GradientDrawable().apply { cornerRadius = radius; setStroke(dp(3), Color.WHITE); setColor(Color.TRANSPARENT) }
             else ColorDrawable(Color.TRANSPARENT)
         }
         card.setOnClickListener { v ->
+            Tick.play(this, 1)
             when (app.kind) {
                 2 -> showHidden()
                 else -> {
@@ -700,6 +716,14 @@ class MainActivity : Activity() {
             }
         }
         return wrapper
+    }
+
+    private fun hasInputs(): Boolean {
+        // A TV with its own input menu, or any TV input registered with Android (HDMI, AV, antenna...).
+        if (packageManager.resolveActivity(Intent("com.toptech.tv.action.INPUT_ACTIVITY"), 0) != null) return true
+        return runCatching {
+            (getSystemService(Context.TV_INPUT_SERVICE) as android.media.tv.TvInputManager).tvInputList.isNotEmpty()
+        }.getOrDefault(false)
     }
 
     // TV source picker (HDMI, AV, VGA, antenna). Uses the TV maker's own picker when the firmware has one.

@@ -3,7 +3,28 @@
 > **Guides:** [SETUP-NEW-BOX.md](SETUP-NEW-BOX.md) sets up a new Android TV box with one command. [CLAUDE.md](CLAUDE.md) holds the project notes for Claude Code and other contributors. [VolumeBar/](VolumeBar) is the separate volume app for the notification area. [PURPOSE.md](PURPOSE.md) explains why this launcher exists and its benefits. See also the [license (MIT)](LICENSE), the [code of conduct](CODE_OF_CONDUCT.md) and the [security policy](SECURITY.md).
 
 An Apple TV–style home screen for Android TV / Google TV, written in Kotlin with no extra libraries.
-Built for old, low-memory TV boxes (tested on Android 5.1.1 and 8.0, 1.8 to 1.9 GB RAM), so it stays light.
+Built for old, low-memory TV boxes (tested on Android 5.1.1, 8.0 and 9, 1.5 to 1.9 GB RAM), so it stays light.
+
+## Download
+
+**[⬇ Download the latest version (AppleTVHome.apk)](https://github.com/mbnetworku/Apple-TV-launcher/releases/latest/download/AppleTVHome.apk)**: always the newest release. Works on Android 5.0 and newer.
+
+On a TV, open the **Downloader** app and type: `github.com/mbnetworku/Apple-TV-launcher/releases/latest/download/AppleTVHome.apk`
+
+All releases, with release notes, are on the **[Releases page](https://github.com/mbnetworku/Apple-TV-launcher/releases)**. Older versions:
+
+| Version | Date | What's new | Download |
+|---|---|---|---|
+| **1.2.5** (latest) | 2026-11-05 | Adds the Wallpaper settings (off, one picture or rotate, interval, motion) to 1.2.4 | [AppleTVLauncher-1.2.5.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.2.5/AppleTVLauncher-1.2.5.apk) |
+| 1.2.4 | 2026-11-05 | Clock time zone option in Settings, cleaner app grid | [AppleTVLauncher-1.2.4.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.2.4/AppleTVLauncher-1.2.4.apk) |
+| 1.2.2 | 2026-11-05 | Live Storage page, Network page, tick sound, bug fixes | [AppleTVLauncher-1.2.2.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.2.2/AppleTVLauncher-1.2.2.apk) |
+| 1.1.9 | 2026-11-05 | Input button only on TVs that have inputs, smaller Settings rows | [AppleTVLauncher-1.1.9.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.1.9/AppleTVLauncher-1.1.9.apk) |
+| 1.1.8 | 2026-11-04 | Input button and Source key, Storage page, icon size, favorite apps, start-up input | [AppleTVLauncher-1.1.8.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.1.8/AppleTVLauncher-1.1.8.apk) |
+| 1.1 | 2026-10-24 | Mouse support, status bar toggle, Android 5.1 support | [AppleTVLauncher-1.1.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.1/AppleTVLauncher-1.1.apk) |
+| 1.0.1 | 2026-10-24 | Version fix | [AppleTVLauncher-1.0.1.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.0.1/AppleTVLauncher-1.0.1.apk) |
+| 1.0 | 2026-10-24 | First release | [AppleTVHome.apk](https://github.com/mbnetworku/Apple-TV-launcher/releases/download/v1.0/AppleTVHome.apk) |
+
+The APKs are signed with the project's test key (not a Play Store key). Android asks you to allow "unknown sources" once. An app installed with one signing key can't be updated by an APK signed with another: uninstall first if the TV refuses an update.
 
 ## Set up a new TV box with one command
 
@@ -27,19 +48,12 @@ Full step-by-step commands, the debloat list, undo and troubleshooting: [SETUP-N
 - Settings → Wallpaper: turn the wallpaper off (plain dark background, lightest on slow boxes), keep one picture, or rotate them all; choose how often it changes (15 seconds to 15 minutes) and switch the slow zoom on or off.
 - Fixed top bar: Bluetooth (when on), LAN (when the cable is connected), Wi-Fi network name, a clock that opens Date and time settings, a volume button and a settings button. A large clock and date sit on the left (12 or 24 hour, chosen in Settings). Each item opens the matching Settings page.
 - Press and hold an app with the mouse and drag it to a new place; release without moving (or long-press OK, or press Menu) for Move, Hide, Uninstall (or App info for built-in system apps). A "Hidden apps" tile brings hidden apps back.
-- Apple TV–style Settings: Wi-Fi (scan, connect with password), Bluetooth (on/off, scan, pair, forget), Speed boost (free memory, animation speed) and shortcuts to the system Sound, Display, Apps, Storage, Date, Language, Accessibility and About screens.
-
-## Download
-
-`releases/AppleTVHome-1.0.apk` (about 8.6 MB, debug-signed, Android 8.0 or newer; build from source for Android 5.0 and up).
-
-## Quick download (Downloader app)
-
-Open **Downloader** on the TV, choose the address box and type:
-
-`github.com/mbnetworku/Apple-TV-launcher/releases/latest/download/AppleTVHome.apk`
-
-It always downloads the newest version.
+- Apple TV–style Settings: Wi-Fi (scan, connect with password), Bluetooth (on/off, scan, pair, forget), Speed boost (free memory, animation speed) and shortcuts to the system Sound, Display, Apps, Date, Language, Accessibility and About screens.
+- **Storage** page with accurate sizes that refresh by themselves (free space, room to install apps, your files, apps and data, system, whole chip).
+- **Network** page: LAN or Wi-Fi, IPv4 address, gateway, subnet mask and DNS, updated live.
+- **Input** button in the top bar and the remote's Source key open the TV's own input menu (HDMI, AV, VGA, antenna). The button is hidden on devices that have no TV inputs. **Start-up input** can open one input automatically when the TV starts.
+- **Icon size**, **Favorite apps**, **Clock time zone** (for devices whose own time zone is unset) and a soft **tick sound** (on or off) on arrows and OK.
+- Pre-installed system apps that have a screen are shown too; hide any you don't want.
 
 ## Install, method 1: with USB debugging (adb)
 
@@ -47,7 +61,7 @@ It always downloads the newest version.
 2. Go back to Developer options and turn on **USB debugging** (some TVs call it ADB debugging or Network debugging). If the TV has no network option, reboot it once after switching it on.
 3. On your PC install the Android platform-tools (<https://developer.android.com/tools/releases/platform-tools>).
 4. Find the TV's IP address (Settings → Network) and connect: `adb connect <tv-ip>:5555`. Accept the "Allow USB debugging?" prompt on the TV (tick **Always allow**).
-5. Install: `adb install -r releases/AppleTVHome-1.0.apk`
+5. Install the APK you downloaded: `adb install -r AppleTVHome.apk`
 6. Make it the Home app: `adb shell cmd package set-home-activity com.mb.appletvlauncher/com.mb.tvlauncher.MainActivity`
 7. Optional, to let the Speed boost page change animation speed: `adb shell pm grant com.mb.appletvlauncher android.permission.WRITE_SECURE_SETTINGS`
 
@@ -56,7 +70,7 @@ It always downloads the newest version.
 Pick whichever is easiest for you.
 
 **A. USB stick + a file manager**
-1. Copy `AppleTVHome-1.0.apk` to a USB stick and plug it into the TV.
+1. Copy the downloaded APK (`AppleTVHome.apk`) to a USB stick and plug it into the TV.
 2. Install a file manager on the TV from the Play Store (for example X-plore or File Commander).
 3. Open the stick in the file manager and select the APK.
 4. If Android asks, allow the file manager to **Install unknown apps** (Settings → Security & restrictions → Unknown sources), then press Install.
