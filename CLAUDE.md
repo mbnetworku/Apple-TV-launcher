@@ -47,7 +47,12 @@ Needs: JDK 17, Android SDK platform 34 + build-tools 34.0.0, platform-tools (`ad
 - Push to GitHub only when the owner asks.
 
 ## Build
-`gradle assembleDebug` with JDK 17, Gradle 8.7, Android SDK platform 34 and build-tools 34.0.0. APK output: `app/build/outputs/apk/debug/app-debug.apk`; the published copy is `releases/AppleTVHome-1.0.apk` (old, needs a newer Android; build from source for old boxes).
+`gradle assembleDebug` with JDK 17, Gradle 8.7, Android SDK platform 34 and build-tools 34.0.0. APK output: `app/build/outputs/apk/debug/app-debug.apk`. Published APKs: `releases/AppleTVLauncher-<version>.apk`, and every GitHub release since 1.2.5 also carries `AppleTVHome.apk` so `releases/latest/download/AppleTVHome.apk` always gives the newest version (Android 5.0+). `releases/AppleTVHome-1.0.apk` is the old 1.0 that needs Android 8.0.
+
+## README and releases
+- The README offers only the latest download (`releases/latest/download/AppleTVHome.apk`); do not add per-version download links.
+- On every release add an entry at the top of the README "Release history": version, date, what is new, and each bug as issue and fix. Move the "latest" mark to it and keep the last entry open (`<details open>`).
+- A short URL or Downloader code for the latest APK is still to come from the owner; its place is marked by an HTML comment in the README Download section.
 
 ## Version history
 - 1.0.1: base launcher, minSdk 21.

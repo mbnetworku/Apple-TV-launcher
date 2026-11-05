@@ -5,9 +5,9 @@ Cheap and old Android TV boxes ship with a slow, cluttered home screen: duplicat
 
 ## What Apple TV Home does
 It replaces the stock home screen with a clean, light one in the style of Apple TV:
-- a large clock and date, and a top bar with volume, Bluetooth, network name, the time and settings;
+- a large clock and date, and a top bar with TV input, volume, Bluetooth, network name, the time and settings;
 - a dock of app tiles that you can drag to reorder with a mouse or the remote, plus an "All apps" view;
-- rotating wallpapers, and its own simple Settings for Wi-Fi, Bluetooth, clock format and system shortcuts;
+- wallpapers (off, one picture or rotating), and its own simple Settings for Wi-Fi, Bluetooth, network details, storage, clock, icon size, favorites and system shortcuts;
 - a separate Volume Bar app that puts a volume control in the notification area.
 
 ## The benefits
@@ -19,4 +19,4 @@ It replaces the stock home screen with a clean, light one in the style of Apple 
 - **Free and open:** MIT licensed, so you can change it for your own box.
 
 ## Who it is for
-People who own an old or low-cost Android TV box (tested on Android 5.1.1 and 8.0) and want a faster, calmer home screen that they control.
+People who own an old or low-cost Android TV box (tested on Android 5.1.1, 8.0 and 9) and want a faster, calmer home screen that they control.

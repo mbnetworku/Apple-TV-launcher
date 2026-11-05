@@ -7,6 +7,8 @@ Everything that was done on the first box (an Android 5.1.1 Amlogic box, rooted,
 2. Find the box's IP address (Settings > Network, or the router's device list). The box and this PC must be on the same network.
 3. Network ADB (port 5555) has no password. Anyone on the network can get a shell. Switch it off when you are done (step 8).
 
+**No PC, or no build tools?** Install the ready APK on the TV with the Downloader app: `github.com/mbnetworku/Apple-TV-launcher/releases/latest/download/AppleTVHome.apk` (always the newest version, Android 5.0 and newer). The steps below are for a full setup with debloat and root.
+
 ## 1. The one command
 On the PC (needs adb, JDK 17, Android SDK platform 34 + build-tools 34.0.0, Gradle 8.7; set `ANDROID_HOME` to the SDK folder):
 
@@ -58,14 +60,14 @@ Hide the system status bar everywhere: `adb shell settings put global policy_con
 - Old Android (5.1.1): no security updates since 2015, many apps (Netflix, YouTube) no longer support it. Do not use such a box for banking.
 
 ## 5. What the launcher gives you
-Large clock and date on the left (12 or 24 hour in Settings), top bar with volume, Bluetooth, LAN or Wi-Fi name, the time (opens Date and time settings) and the gear (opens Settings). Wallpapers rotate every 40 s (`app/src/main/assets/wallpapers`, 1920x1080 JPG). Press and hold an app with the mouse and drag it to a new place; release without moving for Move / Hide / Uninstall. Volume Bar adds a volume control (minus, level bar, plus) in the notification area and starts at boot.
+Large clock and date on the left (12 or 24 hour, optional display time zone), top bar with Input (TVs with inputs only), volume, Bluetooth, LAN or Wi-Fi name, the time (opens Date and time settings) and the gear (opens Settings). Settings has Wi-Fi, Bluetooth, Network, Storage, Speed boost, Wallpaper (off, one picture or rotate every 15 s to 15 min, slow zoom), icon size, favorite apps, start-up input and a tick sound. Wallpapers live in `app/src/main/assets/wallpapers` (about 1920x1080). Press and hold an app with the mouse and drag it to a new place; release without moving for Move / Hide / Uninstall. Volume Bar adds a volume control (minus, level bar, plus) in the notification area and starts at boot.
 
 ## 6. Install other apps from your own projects
 ```powershell
 adb install -r <path\to\app.apk>        # use the build that matches: armeabi-v7a for 32-bit boxes
 adb shell pm list packages -3           # check it is there
 ```
-Example: YouNew TV (`com.younew.tv`) was installed from `YouNew\smarttubetv\build\outputs\apk\stfdroid\release\SmartTube_fdroid_32.68_armeabi-v7a.apk`.
+Pick the APK built for the box's CPU: `ro.product.cpu.abilist` from step 2 tells you (for example `armeabi-v7a` on a 32-bit ARM box).
 
 ## 7. Undo
 - Everything the script disabled: `powershell -ExecutionPolicy Bypass -File box-backup-<time>\restore.ps1`.
@@ -76,7 +78,7 @@ Example: YouNew TV (`com.younew.tv`) was installed from `YouNew\smarttubetv\buil
 Turn Network (ADB) debugging off on the box (and USB debugging if you do not need it), reboot, and check the port is closed: `Test-NetConnection <TV_IP> -Port 5555` should fail.
 
 ## 9. Known problems and tips
-- `INSTALL_FAILED_OLDER_SDK`: the APK needs a newer Android than the box has (the old `releases/AppleTVHome-1.0.apk` does; build from source). `INSTALL_FAILED_VERSION_DOWNGRADE`: raise `versionCode` and `versionName` in `app/build.gradle.kts`.
+- `INSTALL_FAILED_OLDER_SDK`: the APK needs a newer Android than the box has (only the old 1.0 APK does; use the latest `AppleTVHome.apk`, which needs Android 5.0, or build from source). `INSTALL_FAILED_VERSION_DOWNGRADE`: raise `versionCode` and `versionName` in `app/build.gradle.kts`.
 - Gradle error "filename, directory name or volume label syntax is incorrect": `local.properties` needs escaped backslashes (`sdk.dir=C\:\\Users\\...`).
 - The top bar can look "missing": the launcher's own setting "Status bar: Hidden" hides it (Settings > Status bar).
 - `adb shell input tap x y` is exact, but it cannot hold and drag, and the box's own `VOLUME` key events do nothing over ADB.

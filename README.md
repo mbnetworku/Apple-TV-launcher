@@ -16,6 +16,8 @@
 
 This link always gives you the newest version.
 
+<!-- SHORT LINK: when the owner gives a short URL or Downloader code, add it here as the first thing to type, above the long address. -->
+
 📥 **Downloader app on the TV**: type this address
 
 ```

@@ -5,7 +5,7 @@
 - It reads the list of installed apps, Wi-Fi and Bluetooth state, and the volume level, only to show them on screen.
 - The optional "Speed boost" animation setting needs a permission you grant yourself over ADB (`WRITE_SECURE_SETTINGS`). Do not grant it if you do not want that setting.
 - The Volume Bar app only changes the media volume and shows a notification. It has no network access.
-- The APKs in `releases/` are debug-signed, not release-signed. Build from source if you want to be sure what runs on your box.
+- The APKs in `releases/` and on the Releases page are signed with the project's test key, not a Play Store key (1.1 and older were debug-signed). Each release page lists the APK's SHA-256 so you can check the file. Build from source if you want to be sure what runs on your box.
 
 ## Risks you should know about
 - Setting up a box uses network ADB (port 5555), which has no password. Anyone on the same network can control the box while it is on. Turn it off when you finish (see `SETUP-NEW-BOX.md`, step 8).
@@ -13,7 +13,7 @@
 - Old Android versions (for example 5.1.1) no longer get security updates. Do not use such a box for banking or sign-ins you care about.
 
 ## Supported versions
-Only the latest release on `main` is supported.
+Only the latest release is supported. Download it from `https://github.com/mbnetworku/Apple-TV-launcher/releases/latest`.
 
 ## Reporting a vulnerability
 Please do not open a public issue for a security problem. Use GitHub's private reporting: open the **Security** tab of this repository and choose **Report a vulnerability**. Include the version, the Android version of the box and the steps to reproduce. You can expect a reply within about a week, and a fix or a clear answer after that.
